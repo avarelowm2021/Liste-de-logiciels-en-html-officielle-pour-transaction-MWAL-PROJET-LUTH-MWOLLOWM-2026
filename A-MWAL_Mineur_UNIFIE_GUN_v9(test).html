@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MWAL — Mineur V9 (PROD) • OFFLINE + Logs + GUN (optionnel)</title>
+
+<!-- GUN (optionnel) -->
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+
+<style>
+  :root{
+    --bg:#070a08; --panel:#0d1510; --panel2:#0a100c;
+    --ink:#bfffdc; --ink2:#6dffb3; --muted:#8bb99e;
+    --line:rgba(109,255,179,.16);
+    --ok:#6dffb3; --warn:#ffd34d; --bad:#ff5a6a;
+    --shadow: 0 10px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; color:var(--ink);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:
+      radial-gradient(900px 500px at 10% 0%, rgba(109,255,179,.10), transparent 60%),
+      radial-gradient(900px 500px at 90% 10%, rgba(255,211,77,.06), transparent 60%),
+      var(--bg);
+  }
+  .wrap{max-width:1180px;margin:18px auto;padding:0 14px}
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{
+    width:42px;height:42px;border-radius:14px;
+    border:1px solid rgba(109,255,179,.25);
+    background:linear-gradient(135deg, rgba(109,255,179,.16), rgba(255,211,77,.12));
+    box-shadow:var(--shadow); position:relative;
+  }
+  .logo:after{content:"";position:absolute;inset:10px;border-radius:12px;
+    background:linear-gradient(135deg, rgba(109,255,179,.35), rgba(255,211,77,.18));
+  }
+  h1{margin:0;font-size:18px;color:var(--ink2)}
+  .sub{margin-top:2px;color:var(--muted);font-size:12px;max-width:760px;line-height:1.35}
+  .pill{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    padding:8px 10px;border-radius:12px;background:rgba(13,21,16,.75);
+    border:1px solid rgba(109,255,179,.18);box-shadow:0 6px 18px rgba(0,0,0,.28)}
+  .pill b{color:var(--ink2)}
+  .tag{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid rgba(109,255,179,.18);
+    background:rgba(8,12,9,.45);font-size:11px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px}
+  @media(max-width:980px){.grid{grid-template-columns:1fr}}
+  .card{
+    background:linear-gradient(180deg, rgba(13,21,16,.88), rgba(10,16,12,.88));
+    border:1px solid rgba(109,255,179,.18);
+    border-radius:18px; box-shadow:var(--shadow); overflow:hidden;
+  }
+  .hd{padding:12px 14px;border-bottom:1px solid rgba(109,255,179,.12);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .hd h2{margin:0;font-size:14px;color:var(--ink2)}
+  .bd{padding:14px}
+  label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+  input,textarea,select{
+    width:100%;border-radius:12px;padding:10px 10px;
+    background:rgba(8,12,9,.75);
+    border:1px solid rgba(109,255,179,.18);
+    color:var(--ink); outline:none;
+  }
+  textarea{min-height:88px;resize:vertical}
+  input:focus,textarea:focus,select:focus{border-color:rgba(109,255,179,.35)}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>*{flex:1 1 220px}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  button{
+    border:none;padding:10px 12px;border-radius:12px;cursor:pointer;
+    background:linear-gradient(180deg, rgba(16,32,23,.9), rgba(10,18,12,.9));
+    border:1px solid rgba(109,255,179,.2);
+    color:var(--ink2); box-shadow:0 6px 18px rgba(0,0,0,.35);
+    transition:transform .06s ease;
+  }
+  button:hover{background:linear-gradient(180deg, rgba(22,44,31,.95), rgba(10,18,12,.95))}
+  button:active{transform:translateY(1px)}
+  button.secondary{color:var(--ink)}
+  button.warn{border-color:rgba(255,211,77,.35);color:#ffe6a7}
+  button.bad{border-color:rgba(255,90,106,.35);color:#ffd0d6}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:rgba(8,12,9,.55);border:1px solid rgba(109,255,179,.14);border-radius:16px;padding:12px}
+  .stat .lbl{font-size:12px;color:var(--muted)}
+  .stat .val{font-size:18px;color:var(--ink2);margin:6px 0 3px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;}
+  .status{margin-top:10px;padding:10px 12px;border-radius:14px;background:rgba(8,12,9,.5);
+    border:1px solid rgba(109,255,179,.12);font-size:12px;color:var(--muted);white-space:pre-wrap}
+  .status.ok{color:var(--ok)}
+  .status.warn{color:var(--warn)}
+  .status.err{color:var(--bad)}
+  .sep{height:1px;background:rgba(109,255,179,.12);margin:12px 0}
+  .progress{width:100%;height:12px;border-radius:999px;background:rgba(255,255,255,.06);
+    border:1px solid rgba(109,255,179,.14);overflow:hidden}
+  .progress > div{height:100%;width:0%;background:linear-gradient(90deg, rgba(109,255,179,.6), rgba(255,211,77,.45))}
+  .hint{background:rgba(109,255,179,.08);border:1px solid rgba(109,255,179,.12);
+    padding:10px 12px;border-radius:14px;font-size:12px;color:var(--muted)}
+  .list{max-height:300px;overflow:auto;border:1px solid rgba(109,255,179,.12);border-radius:14px;padding:10px;background:rgba(8,12,9,.35)}
+  .block{padding:10px;border:1px solid rgba(109,255,179,.12);border-radius:14px;margin-bottom:10px;background:rgba(8,12,9,.35)}
+  .block:last-child{margin-bottom:0}
+  .small{font-size:12px;color:var(--muted);line-height:1.35}
+  .switchline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .switchline input[type="checkbox"]{width:auto; transform:scale(1.1)}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>MWAL — Mineur/Wallet (V9 PROD)</h1>
+        <div class="sub">
+          V9 = V8 + <b>logs comportementaux</b> + <b>publication GUN optionnelle</b>. OFFLINE reste la norme.
+          Le validateur peut analyser : start/pause/resume/reset + cadence 4s + bloc/hachage + anomalies.
+        </div>
+      </div>
+    </div>
+    <div class="pill small">
+      <span>Wallet ID</span> <b class="mono" id="walletIdLbl">—</b>
+      <span class="tag" id="miningStateTag">inactif</span>
+      <span class="tag mono" id="netTag">NET: ?</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="hd">
+        <h2>⛏️ Session de minage (preuve pour paiement + preuve comportement)</h2>
+        <span class="tag">intervalle: 4s • unité: 0.00000694444444444444</span>
+      </div>
+      <div class="bd">
+
+        <div class="row">
+          <div>
+            <label>ID caisse destinataire (TO)</label>
+            <input id="toId" class="mono" placeholder="MWAL-POS-XXXXXXX"/>
+          </div>
+          <div>
+            <label>Expéditeur (FROM) (optionnel)</label>
+            <input id="fromName" placeholder="ex: mineur laurent"/>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Montant à payer (MWAL) — multiple exact de l’unité</label>
+            <input id="amount" type="number" min="0" step="0.00000001" placeholder="0.00050000"/>
+            <div class="small mono" id="amountInfo">—</div>
+          </div>
+          <div>
+            <label>Libellé (optionnel)</label>
+            <input id="label" placeholder="ex: café / facture #123"/>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="row">
+          <div>
+            <label>Progression (bloc X / Y)</label>
+            <div class="progress"><div id="progBar"></div></div>
+            <div class="small mono" style="margin-top:8px" id="progTxt">0 / 0</div>
+
+            <div class="btns">
+              <button id="btnStart">▶ Démarrer le minage</button>
+              <button id="btnPause" class="secondary" disabled>⏸ Pause</button>
+              <button id="btnResume" class="secondary" disabled>▶ Reprendre</button>
+              <button id="btnReset" class="bad">🧨 Reset local</button>
+            </div>
+
+            <div class="switchline small" style="margin-top:8px">
+              <label><input type="checkbox" id="pubGun" checked> Publier sur GUN (si réseau)</label>
+              <span class="tag mono">clé: miner003_mined</span>
+            </div>
+
+            <div class="status" id="mineStatus">Prêt.</div>
+          </div>
+
+          <div>
+            <label>Résumé</label>
+            <div class="stats">
+              <div class="stat">
+                <div class="lbl">Blocs à produire</div>
+                <div class="val mono" id="targetBlocks">0</div>
+                <div class="lbl">floor(montant / unité)</div>
+              </div>
+              <div class="stat">
+                <div class="lbl">Montant prouvé (MWAL)</div>
+                <div class="val mono" id="provedAmount">0.00000000</div>
+                <div class="lbl">= blocs × unité</div>
+              </div>
+            </div>
+
+            <div class="hint" style="margin-top:10px">
+              V9 ajoute <b>proof.logs</b> : START / BLOCK / PAUSE / RESUME / END / PUBLISH_* / RESET.
+              Le validateur peut détecter pauses suspectes, double-publish, anomalies d’ordre, etc.
+            </div>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="row">
+          <div>
+            <label>Clé MWAL (à coller dans la caisse)</label>
+            <textarea id="outKey" class="mono" readonly placeholder="Générée à la fin du minage"></textarea>
+            <div class="btns">
+              <button id="btnCopyKey" class="secondary" disabled>📋 Copier la clé</button>
+            </div>
+          </div>
+          <div>
+            <label>Code chiffré (à coller dans la caisse)</label>
+            <textarea id="outCode" class="mono" readonly placeholder="Généré à la fin du minage"></textarea>
+            <div class="btns">
+              <button id="btnCopyCode" class="secondary" disabled>📋 Copier le code</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div style="flex:1 1 100%">
+            <label>📦 JSON de blocs (preuve) — à importer dans la caisse</label>
+            <textarea id="outJson" class="mono" readonly placeholder="Généré à la fin du minage"></textarea>
+            <div class="btns">
+              <button id="btnExportJson" class="warn" disabled>📦 Export JSON</button>
+              <button id="btnCopyJson" class="secondary" disabled>📋 Copier JSON</button>
+              <button id="btnExportPackage" class="warn" disabled>📦 Export PACKAGE (inclut logs)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div>
+          <label>Blocs récents (session)</label>
+          <div class="list" id="blocksList"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd">
+        <h2>⚙️ Paramètres & compatibilité</h2>
+        <span class="tag">V9 prod</span>
+      </div>
+      <div class="bd">
+        <div class="stats">
+          <div class="stat">
+            <div class="lbl">Protocole preuve</div>
+            <div class="val mono">MWAL_MINING_V2</div>
+            <div class="lbl">preuve blocs + logs</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">Unité (MWAL)</div>
+            <div class="val mono" id="unitLbl">0.00000694444444444444</div>
+            <div class="lbl">1 MWOLLOWM = 144000 unités</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">Intervalle</div>
+            <div class="val mono">4000 ms</div>
+            <div class="lbl">strict (canonique)</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">Chiffrement</div>
+            <div class="val mono">AES-GCM</div>
+            <div class="lbl">clé dérivée du secret</div>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="row">
+          <div>
+            <label>Secret protocole (identique côté caisse)</label>
+            <input id="secret" class="mono" value="MWAL_CORE_2025_V2_PROTOCOL"/>
+            <div class="small">Le secret sert au code chiffré. La preuve JSON reste vérifiable sans secret.</div>
+          </div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="status" id="rightStatus">Prêt.</div>
+
+        <div class="sep"></div>
+
+        <div>
+          <label>Logs internes (mineur)</label>
+          <textarea id="logs" class="mono" readonly style="min-height:190px"></textarea>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ====== CONSTANTES PROTOCOLE (figées) ======
+  const PROOF_PROTOCOL = "MWAL_MINING_V2";
+  const PACKAGE_PROTOCOL = "MWAL_PACKAGE_V1"; // export optionnel (inclut logs)
+  const UNIT_MWAL_STR = "0.00000694444444444444";
+  const UNIT_MWAL = 0.00000694444444444444;
+  const INTERVAL_MS = 4000;
+
+  // ====== GUN ======
+  const GUN_PEER = "https://gun-encaissement.onrender.com/gun";
+  const GUN_NODE = "miner003_mined";
+  const gun = (window.Gun ? Gun([GUN_PEER]) : null);
+  const gunNode = gun ? gun.get(GUN_NODE) : null;
+
+  // ====== STOCKAGE ======
+  const STORE_KEY = "mwal_miner_v9_prod";
+  const WALLET_ID_KEY = "mwal_wallet_id_v9";
+
+  // ====== UI ======
+  const $ = (id) => document.getElementById(id);
+  const logsEl = $("logs");
+  const miningStateTag = $("miningStateTag");
+
+  function nowIso(){ return new Date().toISOString(); }
+
+  function log(msg){
+    const t = new Date().toISOString().replace("T"," ").replace("Z","");
+    logsEl.value = `[${t}] ${msg}\n` + logsEl.value;
+  }
+
+  function setStatus(el, msg, cls){
+    el.textContent = msg;
+    el.classList.remove("ok","warn","err");
+    if(cls) el.classList.add(cls);
+  }
+
+  function setMiningTag(text, tone){
+    miningStateTag.textContent = text;
+    miningStateTag.style.borderColor =
+      tone === "ok" ? "rgba(109,255,179,.35)" :
+      tone === "warn" ? "rgba(255,211,77,.35)" :
+      tone === "err" ? "rgba(255,90,106,.35)" :
+      "rgba(109,255,179,.18)";
+  }
+
+  function round8(n){ return Math.round((n + Number.EPSILON) * 1e8) / 1e8; }
+
+  function getOrCreateWalletId(){
+    let id = localStorage.getItem(WALLET_ID_KEY);
+    if(id && /^MWAL-[A-Z0-9]{8}$/.test(id)) return id;
+    const rnd = Math.random().toString(36).slice(2,10).toUpperCase();
+    id = "MWAL-" + rnd;
+    localStorage.setItem(WALLET_ID_KEY, id);
+    return id;
+  }
+
+  function uid(prefix="TX"){
+    return `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+  }
+
+  // ====== CRYPTO ======
+  async function sha256Hex(text){
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest("SHA-256", enc);
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+
+  function b64FromBytes(bytes){
+    let s=""; bytes.forEach(b=>s+=String.fromCharCode(b));
+    return btoa(s);
+  }
+
+  async function deriveAesKey(secret){
+    const base = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name:"PBKDF2" },
+      false,
+      ["deriveKey"]
+    );
+    return crypto.subtle.deriveKey(
+      { name:"PBKDF2", salt:new TextEncoder().encode("MWAL_SALT_V2"), iterations:100000, hash:"SHA-256" },
+      base,
+      { name:"AES-GCM", length:256 },
+      false,
+      ["encrypt","decrypt"]
+    );
+  }
+
+  async function encryptJson(secret, obj){
+    const key = await deriveAesKey(secret);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plaintext = new TextEncoder().encode(JSON.stringify(obj));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name:"AES-GCM", iv }, key, plaintext));
+    return "MWAL-AESGCM|" + b64FromBytes(iv) + "|" + b64FromBytes(ct);
+  }
+
+  // ====== STATE ======
+  const defaultState = () => ({
+    walletId: getOrCreateWalletId(),
+    session: null,
+    lastExport: null
+  });
+
+  let S = null;
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      if(!raw){ S = defaultState(); save(); return; }
+      S = Object.assign(defaultState(), JSON.parse(raw));
+      S.walletId = getOrCreateWalletId();
+      save();
+    }catch{
+      S = defaultState(); save();
+    }
+  }
+
+  function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(S)); }
+
+  // ====== LOGS COMPORTEMENTAUX (V9) ======
+  function pushEvt(evt){
+    if(!S.session) return;
+    const e = Object.assign({ ts: nowIso() }, evt);
+    S.session.logs = S.session.logs || [];
+    S.session.logs.push(e);
+    save();
+  }
+
+  // ====== CALCUL BLOCS ======
+  function computeTargetBlocks(amountMWAL){
+    if(!(amountMWAL>0)) return 0;
+    const exact = amountMWAL / UNIT_MWAL;
+    const n = Math.round(exact);
+    const ok = Math.abs(exact - n) < 1e-9;
+    return ok ? n : 0;
+  }
+
+  function refreshAmountInfo(){
+    const amt = Number($("amount").value||0);
+    const n = computeTargetBlocks(amt);
+    if(!amt){
+      $("amountInfo").textContent = "—";
+      $("targetBlocks").textContent = "0";
+      $("provedAmount").textContent = "0.00000000";
+      return;
+    }
+    if(n<=0){
+      const floorN = Math.floor(amt / UNIT_MWAL);
+      const proved = floorN * UNIT_MWAL;
+      const rem = amt - proved;
+      $("amountInfo").textContent =
+        `❌ Non multiple exact. Ex: blocs possibles = ${floorN} (= ${round8(proved).toFixed(8)} MWAL), reste = ${round8(rem).toFixed(8)} MWAL`;
+      $("targetBlocks").textContent = String(floorN);
+      $("provedAmount").textContent = round8(proved).toFixed(8);
+      return;
+    }
+    $("amountInfo").textContent = `✅ Multiple exact : ${n} bloc(s) nécessaires (≈ ${(n*4)} secondes).`;
+    $("targetBlocks").textContent = String(n);
+    $("provedAmount").textContent = round8(n * UNIT_MWAL).toFixed(8);
+  }
+
+  // ====== MINAGE (1 bloc / 4s canonique) ======
+  let timer = null;
+  function clearTimer(){ if(timer){ clearTimeout(timer); timer=null; } }
+
+  async function makeBlock(prevHash, index, tsIso, txId){
+    const block = {
+      index,
+      timestamp: tsIso,
+      walletId: S.walletId,
+      txId,
+      amountMWAL: UNIT_MWAL_STR,
+      prevHash,
+      nonce: crypto.getRandomValues(new Uint32Array(1))[0]
+    };
+    block.hash = await sha256Hex(JSON.stringify(block));
+    return block;
+  }
+
+  function updateNetTag(){
+    const online = (navigator.onLine === true);
+    $("netTag").textContent = "NET: " + (online ? "ONLINE" : "OFFLINE");
+    $("netTag").style.borderColor = online ? "rgba(109,255,179,.35)" : "rgba(255,211,77,.35)";
+  }
+
+  function updateProgressUI(){
+    const sess = S.session;
+    const bar = $("progBar");
+    const txt = $("progTxt");
+    if(!sess){
+      bar.style.width="0%"; txt.textContent="0 / 0";
+      $("btnPause").disabled=true;
+      $("btnResume").disabled=true;
+      setMiningTag("inactif");
+      return;
+    }
+    const pct = sess.targetBlocks ? Math.min(100, (sess.doneBlocks/sess.targetBlocks)*100) : 0;
+    bar.style.width = pct.toFixed(1) + "%";
+    txt.textContent = `${sess.doneBlocks} / ${sess.targetBlocks}`;
+    $("btnPause").disabled = (sess.status!=="RUNNING");
+    $("btnResume").disabled = (sess.status!=="PAUSED");
+    setMiningTag(sess.status==="DONE"?"terminé":(sess.status==="PAUSED"?"pause":"en cours"),
+                sess.status==="RUNNING"?"ok":(sess.status==="PAUSED"?"warn":"ok"));
+  }
+
+  function renderBlocks(){
+    const box = $("blocksList");
+    const sess = S.session;
+    box.innerHTML = "";
+    if(!sess || !sess.blocks || sess.blocks.length===0){
+      box.innerHTML = `<div class="small">Aucun bloc.</div>`;
+      return;
+    }
+    const view = sess.blocks.slice(-12).reverse();
+    for(const b of view){
+      const div = document.createElement("div");
+      div.className = "block mono";
+      div.innerHTML =
+        `<b>Bloc #${b.index}</b> (${b.timestamp})<br/>`+
+        `prevHash: ${String(b.prevHash).slice(0,18)}…<br/>`+
+        `hash: ${String(b.hash).slice(0,18)}…`;
+      box.appendChild(div);
+    }
+  }
+
+  function readInputs(){
+    const to = $("toId").value.trim();
+    const from = $("fromName").value.trim() || "—";
+    const label = $("label").value.trim() || "";
+    const amount = Number($("amount").value||0);
+    return {to, from, label, amount};
+  }
+
+  function validateInputs(){
+    const {to, amount} = readInputs();
+    if(!/^MWAL-POS-[A-Z0-9]{6,12}$/.test(to)) return {ok:false, err:"ID caisse (TO) invalide. Ex: MWAL-POS-ABC12345"};
+    if(!(amount>0)) return {ok:false, err:"Montant invalide."};
+    const n = computeTargetBlocks(amount);
+    if(n<=0) return {ok:false, err:"Montant non multiple exact de l’unité (0.000006944444444444444)."};
+    return {ok:true, blocks:n};
+  }
+
+  async function tick(){
+    const sess = S.session;
+    if(!sess || sess.status!=="RUNNING") return;
+
+    const idx = sess.doneBlocks;
+    const prevHash = (idx===0) ? "GENESIS" : sess.blocks[idx-1].hash;
+
+    // timestamp canonique strict (start + idx*4s)
+    const canonTs = new Date(sess.startTimeMs + idx*INTERVAL_MS).toISOString();
+
+    const blk = await makeBlock(prevHash, idx, canonTs, sess.txId);
+    sess.blocks.push(blk);
+    sess.doneBlocks += 1;
+
+    pushEvt({ event:"BLOCK", index: blk.index, hash: blk.hash });
+
+    save();
+    updateProgressUI();
+    renderBlocks();
+    setStatus($("mineStatus"), `⛏️ Bloc ${sess.doneBlocks}/${sess.targetBlocks} produit.`, "ok");
+
+    if(sess.doneBlocks >= sess.targetBlocks){
+      sess.status = "DONE";
+      pushEvt({ event:"END", blocks: sess.targetBlocks });
+      save();
+      clearTimer();
+      await finalizePackage();
+      updateProgressUI();
+      setStatus($("mineStatus"), "✅ Minage terminé. Clé + code + JSON prêts.", "ok");
+      log("✅ Session terminée : tx="+sess.txId+" blocs="+sess.targetBlocks);
+      return;
+    }
+
+    clearTimer();
+    timer = setTimeout(()=>tick(), INTERVAL_MS);
+  }
+
+  async function start(){
+    if(S.session && (S.session.status==="RUNNING" || S.session.status==="PAUSED")){
+      setStatus($("mineStatus"), "⚠️ Une session est déjà en cours.", "warn");
+      return;
+    }
+    const v = validateInputs();
+    if(!v.ok){
+      setStatus($("mineStatus"), "❌ " + v.err, "err");
+      return;
+    }
+
+    const {to, from, label, amount} = readInputs();
+    const txId = uid("TX");
+    const startMs = Date.now();
+
+    S.session = {
+      protocol: PROOF_PROTOCOL,
+      txId,
+      walletId: S.walletId,
+      rules: { unitMWAL: UNIT_MWAL_STR, intervalMs: INTERVAL_MS },
+      to, from, label,
+      amountMWAL: round8(amount),
+      targetBlocks: v.blocks,
+      doneBlocks: 0,
+      blocks: [],
+      logs: [],
+      status: "RUNNING",
+      createdAt: nowIso(),
+      startTimeMs: startMs,
+      pubGun: !!$("pubGun").checked,
+      gunPeer: GUN_PEER,
+      gunNode: GUN_NODE
+    };
+
+    pushEvt({ event:"START", to, amountMWAL: round8(amount), targetBlocks: v.blocks, pubGun: S.session.pubGun });
+
+    S.lastExport = null;
+    save();
+
+    $("outKey").value = "";
+    $("outCode").value = "";
+    $("outJson").value = "";
+    $("btnCopyKey").disabled = true;
+    $("btnCopyCode").disabled = true;
+    $("btnExportJson").disabled = true;
+    $("btnCopyJson").disabled = true;
+    $("btnExportPackage").disabled = true;
+
+    updateProgressUI();
+    renderBlocks();
+    setStatus($("mineStatus"), `⛏️ Session démarrée : ${v.blocks} bloc(s) → ~${v.blocks*4}s.`, "ok");
+    log("⛏️ Start tx="+txId+" to="+to+" amount="+amount);
+
+    clearTimer();
+    timer = setTimeout(()=>tick(), 20);
+  }
+
+  function pause(){
+    if(!S.session || S.session.status!=="RUNNING") return;
+    S.session.status = "PAUSED";
+    pushEvt({ event:"PAUSE" });
+    save();
+    clearTimer();
+    updateProgressUI();
+    setStatus($("mineStatus"), "⏸ Session en pause.", "warn");
+    log("⏸ paused");
+  }
+
+  function resume(){
+    if(!S.session || S.session.status!=="PAUSED") return;
+    S.session.status = "RUNNING";
+    pushEvt({ event:"RESUME" });
+    save();
+    updateProgressUI();
+    setStatus($("mineStatus"), "▶ Session reprise.", "ok");
+    log("▶ resumed");
+    clearTimer();
+    timer = setTimeout(()=>tick(), 20);
+  }
+
+  async function finalizePackage(){
+    const sess = S.session;
+    if(!sess || sess.status!=="DONE") return;
+
+    const amountMWAL = round8(sess.targetBlocks * UNIT_MWAL);
+
+    // Clé MWAL
+    const key = [
+      "MWAL",
+      "TX="+sess.txId,
+      "FROM="+encodeURIComponent(sess.from),
+      "TO="+sess.to,
+      "AMOUNT="+amountMWAL.toFixed(8),
+      "TS="+encodeURIComponent(sess.createdAt),
+      sess.label ? ("LABEL="+encodeURIComponent(sess.label)) : ""
+    ].filter(Boolean).join("|");
+
+    // Proof (inclut logs)
+    const proof = {
+      protocol: PROOF_PROTOCOL,
+      walletId: sess.walletId,
+      txId: sess.txId,
+      rules: { unitMWAL: UNIT_MWAL_STR, intervalMs: INTERVAL_MS },
+      to: sess.to,
+      from: sess.from,
+      label: sess.label || "",
+      createdAt: sess.createdAt,
+      blocks: sess.blocks,
+      finalHash: sess.blocks.length ? sess.blocks[sess.blocks.length-1].hash : "0",
+      logs: sess.logs || [],
+      meta: {
+        minerVersion: "V9_PROD",
+        pubGun: !!sess.pubGun,
+        gunPeer: sess.gunPeer,
+        gunNode: sess.gunNode
+      }
+    };
+
+    // Code chiffré
+    const secret = $("secret").value.trim() || "MWAL_CORE_2025_V2_PROTOCOL";
+    const proofHash = await sha256Hex(JSON.stringify(proof));
+    const codePayload = {
+      protocol:"MWAL_TX_PAYLOAD_V2",
+      txId: sess.txId,
+      from: sess.from,
+      to: sess.to,
+      amountMWAL: amountMWAL.toFixed(8),
+      createdAt: sess.createdAt,
+      label: sess.label || "",
+      proofHash
+    };
+    const code = await encryptJson(secret, codePayload);
+
+    // Export PACKAGE (optionnel mais utile pour validateur)
+    const pkg = {
+      protocol: PACKAGE_PROTOCOL,
+      key,
+      code,
+      proof,
+      proofHash
+    };
+
+    S.lastExport = { key, code, proof, package: pkg };
+    save();
+
+    $("outKey").value = key;
+    $("outCode").value = code;
+    $("outJson").value = JSON.stringify(proof, null, 2);
+
+    $("btnCopyKey").disabled = false;
+    $("btnCopyCode").disabled = false;
+    $("btnExportJson").disabled = false;
+    $("btnCopyJson").disabled = false;
+    $("btnExportPackage").disabled = false;
+
+    setStatus($("rightStatus"), "✅ Package prêt : clé + code + JSON + logs.", "ok");
+    log("📦 Package prêt tx="+sess.txId+" proofHash="+proofHash.slice(0,12)+"…");
+
+    // ====== Publication GUN (optionnelle) ======
+    if(sess.pubGun && gunNode && navigator.onLine){
+      try{
+        pushEvt({ event:"PUBLISH_BEGIN", gunNode: GUN_NODE });
+
+        // On publie chaque bloc sous un format "visionneuse-compatible"
+        // et "compteur-stable" (serial + wallet + txId).
+        let cumulative = 0;
+        for(let i=0;i<sess.blocks.length;i++){
+          cumulative += UNIT_MWAL;
+          const row = {
+            wallet: sess.walletId,
+            serial: i+1, // 1..N
+            value: UNIT_MWAL,
+            cumulative_balance: Number(cumulative.toFixed(16)),
+            date: sess.blocks[i].timestamp,
+            txId: sess.txId,
+            proofHash
+          };
+          gunNode.set(row);
+        }
+
+        pushEvt({ event:"PUBLISH_OK", count: sess.blocks.length });
+        log("🌐 Publication GUN OK ("+sess.blocks.length+" events).");
+      }catch(e){
+        pushEvt({ event:"PUBLISH_FAIL", error: String(e && e.message ? e.message : e) });
+        log("⚠️ Publication GUN échouée. (OFFLINE conservé)");
+      }
+    }else{
+      pushEvt({ event:"PUBLISH_SKIPPED", reason: (!sess.pubGun ? "disabled" : (!navigator.onLine ? "offline" : "no_gun")) });
+      log("ℹ️ Publication GUN ignorée (désactivée ou OFFLINE).");
+    }
+
+    save();
+  }
+
+  function downloadJson(obj, filename){
+    const json = JSON.stringify(obj, null, 2);
+    const blob = new Blob([json], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function copyText(text){
+    if(!text) return false;
+    try{ await navigator.clipboard.writeText(text); return true; }catch{ return false; }
+  }
+
+  function resetAll(){
+    if(!confirm("Reset local ? (efface session & walletId)")) return;
+    if(S && S.session){
+      pushEvt({ event:"RESET" });
+      save();
+    }
+    localStorage.removeItem(STORE_KEY);
+    localStorage.removeItem(WALLET_ID_KEY);
+    location.reload();
+  }
+
+  function wire(){
+    $("amount").addEventListener("input", refreshAmountInfo);
+    $("btnStart").addEventListener("click", start);
+    $("btnPause").addEventListener("click", pause);
+    $("btnResume").addEventListener("click", resume);
+    $("btnReset").addEventListener("click", resetAll);
+
+    $("btnCopyKey").addEventListener("click", async ()=>{
+      const ok = await copyText($("outKey").value);
+      setStatus($("mineStatus"), ok ? "✅ Clé copiée." : "❌ Impossible de copier.", ok?"ok":"err");
+    });
+    $("btnCopyCode").addEventListener("click", async ()=>{
+      const ok = await copyText($("outCode").value);
+      setStatus($("mineStatus"), ok ? "✅ Code copié." : "❌ Impossible de copier.", ok?"ok":"err");
+    });
+    $("btnCopyJson").addEventListener("click", async ()=>{
+      const ok = await copyText($("outJson").value);
+      setStatus($("mineStatus"), ok ? "✅ JSON copié." : "❌ Impossible de copier.", ok?"ok":"err");
+    });
+    $("btnExportJson").addEventListener("click", ()=>{
+      if(!S.lastExport || !S.lastExport.proof){
+        setStatus($("mineStatus"), "❌ Aucun JSON à exporter.", "err"); return;
+      }
+      downloadJson(S.lastExport.proof, `MWAL_PROOF_V9_${S.walletId}_${S.lastExport.proof.txId}.json`);
+    });
+    $("btnExportPackage").addEventListener("click", ()=>{
+      if(!S.lastExport || !S.lastExport.package){
+        setStatus($("mineStatus"), "❌ Aucun PACKAGE à exporter.", "err"); return;
+      }
+      downloadJson(S.lastExport.package, `MWAL_PACKAGE_V9_${S.walletId}_${S.lastExport.proof.txId}.mwal.json`);
+    });
+
+    window.addEventListener("online", updateNetTag);
+    window.addEventListener("offline", updateNetTag);
+    updateNetTag();
+  }
+
+  function refreshHeader(){
+    $("walletIdLbl").textContent = getOrCreateWalletId();
+  }
+
+  function restoreSession(){
+    if(!S.session){
+      setStatus($("mineStatus"), "Prêt.", "");
+      setMiningTag("inactif");
+      updateProgressUI(); renderBlocks();
+      return;
+    }
+    if(S.session.status==="RUNNING"){
+      S.session.status = "PAUSED";
+      pushEvt({ event:"AUTO_PAUSE_RELOAD" });
+      save();
+      setStatus($("mineStatus"), "⚠️ Session retrouvée → mise en pause. Clique “Reprendre”.", "warn");
+      log("⚠️ session retrouvée, pause automatique");
+    }else if(S.session.status==="DONE"){
+      setStatus($("mineStatus"), "✅ Dernière session terminée. Package dispo.", "ok");
+      if(S.lastExport){
+        $("outKey").value = S.lastExport.key || "";
+        $("outCode").value = S.lastExport.code || "";
+        $("outJson").value = S.lastExport.proof ? JSON.stringify(S.lastExport.proof, null, 2) : "";
+        $("btnCopyKey").disabled = !S.lastExport.key;
+        $("btnCopyCode").disabled = !S.lastExport.code;
+        $("btnExportJson").disabled = !S.lastExport.proof;
+        $("btnCopyJson").disabled = !S.lastExport.proof;
+        $("btnExportPackage").disabled = !S.lastExport.package;
+      }
+    }
+    updateProgressUI(); renderBlocks();
+  }
+
+  // INIT
+  load();
+  refreshHeader();
+  wire();
+  refreshAmountInfo();
+  restoreSession();
+  log("✅ Mineur V9 PROD chargé.");
+})();
+</script>
+</body>
+</html>
