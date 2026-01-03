@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MWAL — Caisse (OFFLINE • COFFRE-FORT • Import JSON obligatoire • POS‑Mining interne)</title>
+<style>
+:root{
+  --bg:#070a08;--panel:#0d1510;--panel2:#0a100c;--ink:#bfffdc;--ink2:#6dffb3;--muted:#8bb99e;
+  --line:rgba(109,255,179,.16);--ok:#6dffb3;--warn:#ffd34d;--bad:#ff5a6a;--shadow:0 10px 30px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  background:radial-gradient(900px 500px at 10% 0%, rgba(109,255,179,.10), transparent 60%),
+             radial-gradient(900px 500px at 90% 10%, rgba(255,211,77,.06), transparent 60%),var(--bg);}
+.wrap{max-width:1220px;margin:18px auto;padding:0 14px}
+header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:42px;height:42px;border-radius:14px;border:1px solid rgba(109,255,179,.25);
+  background:linear-gradient(135deg, rgba(109,255,179,.16), rgba(255,211,77,.12));box-shadow:var(--shadow);position:relative;}
+.logo:after{content:"";position:absolute;inset:10px;border-radius:12px;background:linear-gradient(135deg, rgba(109,255,179,.35), rgba(255,211,77,.18));}
+h1{margin:0;font-size:18px;color:var(--ink2)}
+.sub{margin-top:2px;color:var(--muted);font-size:12px;max-width:820px}
+.pill{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-radius:12px;background:rgba(13,21,16,.75);
+  border:1px solid rgba(109,255,179,.18);box-shadow:0 6px 18px rgba(0,0,0,.28)}
+.pill b{color:var(--ink2)}
+.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:12px}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg, rgba(13,21,16,.88), rgba(10,16,12,.88));
+  border:1px solid rgba(109,255,179,.18);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;}
+.hd{padding:12px 14px;border-bottom:1px solid rgba(109,255,179,.12);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.hd h2{margin:0;font-size:14px;color:var(--ink2)}
+.bd{padding:14px}
+label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+input,textarea,select{width:100%;border-radius:12px;padding:10px 10px;background:rgba(8,12,9,.75);
+  border:1px solid rgba(109,255,179,.18);color:var(--ink);outline:none;}
+textarea{min-height:88px;resize:vertical}
+input:focus,textarea:focus,select:focus{border-color:rgba(109,255,179,.35)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 220px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+button{border:none;padding:10px 12px;border-radius:12px;cursor:pointer;background:linear-gradient(180deg, rgba(16,32,23,.9), rgba(10,18,12,.9));
+  border:1px solid rgba(109,255,179,.2);color:var(--ink2);box-shadow:0 6px 18px rgba(0,0,0,.35);transition:transform .06s ease;}
+button:hover{background:linear-gradient(180deg, rgba(22,44,31,.95), rgba(10,18,12,.95))}
+button:active{transform:translateY(1px)}
+button.secondary{color:var(--ink)}
+button.warn{border-color:rgba(255,211,77,.35);color:#ffe6a7}
+button.bad{border-color:rgba(255,90,106,.35);color:#ffd0d6}
+button:disabled{opacity:.45;cursor:not-allowed}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:rgba(8,12,9,.55);border:1px solid rgba(109,255,179,.14);border-radius:16px;padding:12px}
+.stat .lbl{font-size:12px;color:var(--muted)}
+.stat .val{font-size:18px;color:var(--ink2);margin:6px 0 3px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;}
+.status{margin-top:10px;padding:10px 12px;border-radius:14px;background:rgba(8,12,9,.5);border:1px solid rgba(109,255,179,.12);font-size:12px;color:var(--muted);white-space:pre-wrap}
+.status.ok{color:var(--ok)}
+.status.warn{color:var(--warn)}
+.status.err{color:var(--bad)}
+.sep{height:1px;background:rgba(109,255,179,.12);margin:12px 0}
+.hint{background:rgba(109,255,179,.08);border:1px solid rgba(109,255,179,.12);padding:10px 12px;border-radius:14px;font-size:12px;color:var(--muted)}
+.list{max-height:280px;overflow:auto;border:1px solid rgba(109,255,179,.12);border-radius:14px;padding:10px;background:rgba(8,12,9,.35)}
+.item{padding:10px;border:1px solid rgba(109,255,179,.12);border-radius:14px;margin-bottom:10px;background:rgba(8,12,9,.35)}
+.item:last-child{margin-bottom:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:780px){.grid2{grid-template-columns:1fr}}
+.progress{width:100%;height:12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(109,255,179,.14);overflow:hidden}
+.progress>div{height:100%;width:0%;background:linear-gradient(90deg, rgba(109,255,179,.6), rgba(255,211,77,.45))}
+.tag{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid rgba(109,255,179,.18);background:rgba(8,12,9,.45);font-size:11px;color:var(--muted)}
+.small{font-size:12px;color:var(--muted)}
+/* ===== Modal assistant import ledger ===== */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:14px;z-index:9999;}
+.modal{width:min(860px,100%);background:linear-gradient(180deg, rgba(13,21,16,.96), rgba(10,16,12,.96));
+  border:1px solid rgba(109,255,179,.22);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;}
+.modal-hd{padding:12px 14px;border-bottom:1px solid rgba(109,255,179,.12);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.modal-hd h3{margin:0;font-size:14px;color:var(--ink2)}
+.modal-bd{padding:14px}
+.kv{display:grid;grid-template-columns:170px 1fr;gap:8px 12px;font-size:12px}
+.kv .k{color:var(--muted)}
+.kv .v{color:var(--ink)}
+.pillbox{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.pilltag{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid rgba(109,255,179,.18);background:rgba(8,12,9,.45);font-size:12px;color:var(--muted)}
+.pilltag.ok{color:var(--ok);border-color:rgba(109,255,179,.25)}
+.pilltag.warn{color:var(--warn);border-color:rgba(255,211,77,.35)}
+.pilltag.err{color:var(--bad);border-color:rgba(255,90,106,.35)}
+.radioRow{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+.radioRow label{display:flex;align-items:flex-start;gap:8px;cursor:pointer;background:rgba(8,12,9,.35);border:1px solid rgba(109,255,179,.12);padding:10px 12px;border-radius:14px;min-width:220px}
+.radioRow input{width:auto;margin-top:3px}
+.modal-ft{padding:12px 14px;border-top:1px solid rgba(109,255,179,.12);display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+pre.codebox{margin:10px 0 0;background:rgba(8,12,9,.45);border:1px solid rgba(109,255,179,.12);padding:10px;border-radius:14px;max-height:180px;overflow:auto;font-size:12px}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+<header>
+  <div class="brand">
+    <div class="logo"></div>
+    <div>
+      <h1>MWAL — Caisse (OFFLINE) 🔐 Coffre-fort</h1>
+      <div class="sub">Import JSON obligatoire (preuve + clé + code). POS-mining interne pour caisse→caisse. Ledger signé ECDSA + mode coffre-fort + verrou anti-onglets.</div>
+    </div>
+  </div>
+  <div class="pill small">
+    <span>ID de la caisse</span> <b class="mono" id="posIdLbl">MWAL-POS-XXXXXX</b>
+    <button class="secondary" id="btnCopyPos">📋 Copier ID</button>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="card">
+    <div class="hd"><h2>💳 Encaisser (import JSON obligatoire)</h2><span class="tag">STRICT</span></div>
+    <div class="bd">
+      <div class="row">
+        <div>
+          <label>Clé MWAL</label>
+          <textarea id="inKey" class="mono" placeholder="MWAL|TX=...|FROM=...|TO=MWAL-POS-XXXXXX|AMOUNT=..."></textarea>
+        </div>
+        <div>
+          <label>Code chiffré</label>
+          <textarea id="inCode" class="mono" placeholder="MWAL-AESGCM|IV|CIPHERTEXT"></textarea>
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1 1 100%">
+          <label>Paquet MWAL (.mwal.json) ou JSON preuve (.json)</label>
+          <textarea id="inProof" class="mono" placeholder="Coller le JSON ou importer le fichier"></textarea>
+          <input type="file" id="importProof" accept=".json" style="margin-top:8px">
+          <input type="file" id="importPackage" accept=".mwal.json,.json" style="margin-top:8px">
+          <div class="small">Astuce : importer un <b>paquet MWAL</b> (clé+code+preuve) en un seul fichier.</div>
+          <div class="btns">
+            <button id="btnCheck">🔍 Vérifier</button>
+            <button id="btnQuickReceive" class="warn">⚡ Importer paquet &amp; Recevoir</button>
+            <button id="btnAccept" class="warn" disabled>✅ Encaisser</button>
+            <button id="btnClear" class="secondary">🧹 Effacer</button>
+          </div>
+          <div class="status" id="inStatus">Prêt.</div>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="stats">
+        <div class="stat"><div class="lbl">Solde</div><div class="val mono" id="balLbl">0.00000000</div><div class="lbl">MWAL</div></div>
+        <div class="stat"><div class="lbl">Encaissements</div><div class="val mono" id="txCountLbl">0</div><div class="lbl">TX</div></div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="hint">
+        Acceptation = cohérence <b>clé</b> + <b>code chiffré</b> + <b>preuve JSON</b> (unit + 4s + hash + total).<br>
+        Anti-replay : chaque TX ne peut être encaissée qu'une seule fois.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="hd"><h2>🔁 Caisse → Caisse (POS-mining interne)</h2><span class="tag">OFFLINE</span></div>
+    <div class="bd">
+
+      <div class="row">
+        <div>
+          <label>Adresse destinataire (TO)</label>
+          <input id="outTo" class="mono" placeholder="MWAL-POS-XXXXXX ou MWAL-WALLET-XXXXXX">
+        </div>
+        <div>
+          <label>Montant (MWAL) — multiple exact de l’unité</label>
+          <input id="outAmt" type="number" min="0" step="0.00000001" placeholder="0.00050000">
+          <div class="small mono" id="outInfo">—</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>FROM (nom caisse)</label>
+          <input id="outFrom" placeholder="ex: caisse magasin 1">
+        </div>
+        <div>
+          <label>Libellé (OBLIGATOIRE — bien/service)</label>
+          <input id="outLabel" placeholder="ex: transfert magasin 1 → magasin 2">
+        </div>
+        <div>
+          <label>Équivalent en euro (€) (suggestion — 20 décimales)</label>
+          <input id="outEur" class="mono" placeholder="ex: 25.00000000000000000000">
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <label>Progression POS-mining (bloc X / Y)</label>
+      <div class="progress"><div id="posBar"></div></div>
+      <div class="small mono" style="margin-top:8px" id="posTxt">0 / 0</div>
+      <div class="btns">
+        <button id="btnPosStart">▶ Démarrer POS-mining</button>
+        <button id="btnPosPause" class="secondary" disabled>⏸ Pause</button>
+        <button id="btnPosResume" class="secondary" disabled>▶ Reprendre</button>
+        <button id="btnPosCancel" class="bad" disabled>✖ Annuler</button>
+      </div>
+      <div class="status" id="posStatus">Prêt.</div>
+
+      <div class="sep"></div>
+
+      <div class="row">
+        <div>
+          <label>Clé MWAL (à envoyer)</label>
+          <textarea id="outKey" class="mono" readonly></textarea>
+          <div class="btns"><button id="btnCopyOutKey" class="secondary" disabled>📋 Copier clé</button></div>
+        </div>
+        <div>
+          <label>Code chiffré (à envoyer)</label>
+          <textarea id="outCode" class="mono" readonly></textarea>
+          <div class="btns"><button id="btnCopyOutCode" class="secondary" disabled>📋 Copier code</button></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1 1 100%">
+          <label>📦 JSON preuve (à envoyer / importer côté caisse receveuse)</label>
+          <textarea id="outProof" class="mono" readonly></textarea>
+
+          <label style="margin-top:10px">⛓️ Dépôt Blockchain OFFLINE (copier/coller dans la Blockchain)</label>
+          <textarea id="outChainDeposit" class="mono" readonly></textarea>
+
+          <div class="btns">
+            <button id="btnExportOutProof" class="warn" disabled>📦 Export PREUVE (.json)</button>
+            <button id="btnExportPackage" class="warn" disabled>📦 Export PAQUET (.mwal.json)</button>
+            <button id="btnExportChainDeposit" class="warn" disabled>⛓️ Export DÉPÔT BLOCKCHAIN</button>
+            <button id="btnExportObserver" class="warn" disabled>👁️ Export OBSERVATION</button>
+            <button id="btnCopyOutProof" class="secondary" disabled>📋 Copier JSON</button>
+            <button id="btnCopyChainDeposit" class="secondary" disabled>📋 Copier dépôt</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="hint"><b>Règle POS-mining :</b> on ne recycle jamais les blocs reçus. Chaque transfert caisse→caisse fabrique une nouvelle preuve à 4s/bloc.</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid2" style="margin-top:12px">
+  <div class="card">
+    <div class="hd"><h2>📜 Historique</h2><span class="tag">local</span></div>
+    <div class="bd"><div class="list" id="hist"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="hd"><h2>⚙️ Paramètres</h2><span class="tag">coffre-fort</span></div>
+    <div class="bd">
+      <label>Secret protocole AES-GCM (doit être identique mineur/caisse)</label>
+      <input id="secret" class="mono" value="MWAL_CORE_2025_V2_PROTOCOL">
+
+      <div class="sep"></div>
+
+      <label>Identité de signature (clé publique) — <b>COFFRE-FORT</b></label>
+      <input id="sigKeyId" class="mono" readonly value="(initialisation…)">
+      <div class="small">Restauration/Fusion autorisées uniquement si le ledger est signé par <b>cette</b> clé.</div>
+      <div class="btns" style="margin-top:8px">
+        <button id="btnExportPubKey" class="secondary">🔓 Export clé publique (.json)</button>
+        <button id="btnRotateKeys" class="bad">🔁 Rotation clés (dangereux)</button>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="btns">
+        <button id="btnExportLedger" class="warn">📦 Export ledger caisse (signé)</button>
+        <button id="btnImportLedger" class="warn">📥 Import ledger caisse</button>
+        <button id="btnResetAll" class="bad">🧨 Reset caisse</button>
+      </div>
+      <input type="file" id="importLedger" accept=".json" style="display:none">
+
+      <div class="status" id="sysStatus">Prêt.</div>
+
+      <div class="sep"></div>
+      <label>Logs</label>
+      <textarea id="logs" class="mono" readonly style="min-height:180px"></textarea>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== Modal assistant import ledger ===== -->
+<div class="modal-backdrop" id="ledgerModalBackdrop" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3>📥 Assistant d’import Ledger</h3>
+      <button class="secondary" id="btnCloseLedgerModal">✖ Fermer</button>
+    </div>
+    <div class="modal-bd">
+      <div class="hint">
+        Modes :
+        <b>Restaurer</b> (écrase tout), <b>Fusionner</b> (ajoute TX manquantes), <b>Lecture seule</b> (aucune écriture).
+        <br><b>COFFRE-FORT :</b> restaurer/fusionner exigent la <b>même clé locale</b>.
+        <br><b>Verrou anti-onglets :</b> si une autre instance est active, restauration/fusion sont désactivées ici.
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="kv mono" id="ledgerSummaryKv"></div>
+
+      <div class="pillbox" id="ledgerPills"></div>
+
+      <div class="sep"></div>
+
+      <div class="radioRow">
+        <label>
+          <input type="radio" name="ledgerMode" value="restore" checked>
+          <div>
+            <div class="mono" style="color:var(--ink2)">Restaurer (overwrite)</div>
+            <div class="small">Remplace l’état local par le ledger importé.</div>
+          </div>
+        </label>
+        <label>
+          <input type="radio" name="ledgerMode" value="merge">
+          <div>
+            <div class="mono" style="color:var(--ink2)">Fusion intelligente</div>
+            <div class="small">Ajoute uniquement les TX absentes + met à jour solde & anti-replay.</div>
+          </div>
+        </label>
+        <label>
+          <input type="radio" name="ledgerMode" value="readonly">
+          <div>
+            <div class="mono" style="color:var(--ink2)">Lecture seule</div>
+            <div class="small">Affiche le ledger (audit) sans modifier la caisse.</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="sep"></div>
+
+      <label>Prévisualisation (lecture seule)</label>
+      <pre class="codebox mono" id="ledgerPreview"></pre>
+
+      <div class="status" id="ledgerModalStatus">Prêt.</div>
+    </div>
+    <div class="modal-ft">
+      <button class="secondary" id="btnLedgerCancel">Annuler</button>
+      <button class="warn" id="btnLedgerApply">✅ Appliquer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ===================== COFFRE-FORT ===================== */
+const LEDGER_SAFE_MODE = true; // 🔐 coffre-fort ON
+
+/* ===================== Instance Lock (ANTI-ONGLETS MULTIPLES) ===================== */
+const INSTANCE_ID = (crypto.randomUUID ? crypto.randomUUID() : ("inst-"+Math.random().toString(36).slice(2)));
+const INSTANCE_LOCK_KEY = "MWAL_ACTIVE_INSTANCE_LOCK_V1";
+const INSTANCE_LOCK_TTL = 8000;     // 8s
+const INSTANCE_HEARTBEAT_MS = 3000; // 3s
+let instanceHasLock = false;
+let instanceHeartbeatTimer = null;
+let instanceReclaimTimer = null;
+
+/* ===================== Protocols & constants ===================== */
+const PROOF_PROTOCOL="MWAL_MINING_V2";
+const TX_PAYLOAD_PROTOCOL="MWAL_TX_PAYLOAD_V2";
+const PACKAGE_PROTOCOL="MWAL_PACKAGE_V1";
+const LEDGER_PROTOCOL_V3="MWAL_POS_LEDGER_V3"; // legacy
+const LEDGER_PROTOCOL_V5="MWAL_POS_LEDGER_V5"; // hash + ECDSA
+
+const UNIT_MWAL_STR="0.00000694444444444444";
+const INTERVAL_MS=4000;
+
+const STORE_KEY="mwal_pos_offline_v3";
+const POS_ID_KEY="mwal_pos_id_v3";
+
+const SIGN_DB_NAME="mwal_pos_keys_db";
+const SIGN_DB_VER=1;
+const SIGN_STORE="keys";
+const SIGN_KEYPAIR_ID="mwal_signing_keypair_v1";
+
+const $=(id)=>document.getElementById(id);
+const logs=$("logs");
+const enc=new TextEncoder();
+
+/* ===================== UI helpers ===================== */
+function log(msg){
+  const t=new Date().toISOString().replace("T"," ").replace("Z","");
+  logs.value=`[${t}] ${msg}\n`+logs.value;
+}
+function setStatus(el,msg,cls){
+  el.textContent=msg;
+  el.classList.remove("ok","warn","err");
+  if(cls) el.classList.add(cls);
+}
+function round8(n){return Math.round((n+Number.EPSILON)*1e8)/1e8;}
+function safeNum(x){const n=Number(x); return Number.isFinite(n)?n:0;}
+
+/* ===================== Instance lock helpers ===================== */
+function _readLock(){
+  try{ return JSON.parse(localStorage.getItem(INSTANCE_LOCK_KEY)); }catch{ return null; }
+}
+function acquireInstanceLock(){
+  const now = Date.now();
+  const lock = _readLock();
+  if(lock && lock.id !== INSTANCE_ID && (now - lock.ts) < INSTANCE_LOCK_TTL){
+    return false;
+  }
+  localStorage.setItem(INSTANCE_LOCK_KEY, JSON.stringify({ id: INSTANCE_ID, ts: now }));
+  return true;
+}
+function releaseInstanceLock(){
+  try{
+    const lock=_readLock();
+    if(lock && lock.id === INSTANCE_ID) localStorage.removeItem(INSTANCE_LOCK_KEY);
+  }catch{}
+}
+function startInstanceHeartbeat(){
+  stopInstanceHeartbeat();
+  instanceHeartbeatTimer = setInterval(()=>{
+    if(!instanceHasLock) return;
+    localStorage.setItem(INSTANCE_LOCK_KEY, JSON.stringify({ id: INSTANCE_ID, ts: Date.now() }));
+  }, INSTANCE_HEARTBEAT_MS);
+}
+function stopInstanceHeartbeat(){
+  if(instanceHeartbeatTimer){ clearInterval(instanceHeartbeatTimer); instanceHeartbeatTimer=null; }
+}
+function startReclaimLoop(){
+  if(instanceReclaimTimer) clearInterval(instanceReclaimTimer);
+  instanceReclaimTimer = setInterval(()=>{
+    if(instanceHasLock) return;
+    const ok = acquireInstanceLock();
+    if(ok){
+      instanceHasLock = true;
+      startInstanceHeartbeat();
+      log("🔒 Instance lock RECLAIM id="+INSTANCE_ID);
+      enforceInstanceLockUI();
+    }
+  }, 2000);
+}
+function enforceInstanceLockUI(){
+  const disabled = !instanceHasLock;
+
+  // boutons critiques : dépenses / écriture / restauration
+  [
+    "btnAccept","btnPosStart","btnPosPause","btnPosResume","btnPosCancel",
+    "btnLedgerApply","btnResetAll","btnRotateKeys"
+  ].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.disabled = disabled;
+  });
+
+  // si pas de lock, on force aussi un message clair
+  if(disabled){
+    setStatus($("sysStatus"),
+      "🔒 Une autre instance de la caisse est active.\nCette instance est en lecture seule (anti-duplication d’onglets).",
+      "warn"
+    );
+    setStatus($("posStatus"), "🔒 Lecture seule : POS-mining bloqué (autre onglet actif).", "warn");
+  }
+}
+
+/* ===================== IDs ===================== */
+function getOrCreatePosId(){
+  let id=localStorage.getItem(POS_ID_KEY);
+  if(id && /^MWAL-POS-[A-Z0-9]{6,12}$/.test(id)) return id;
+  const rnd=Math.random().toString(36).slice(2,10).toUpperCase();
+  id="MWAL-POS-"+rnd;
+  localStorage.setItem(POS_ID_KEY,id);
+  return id;
+}
+function uid(prefix="TX"){
+  return `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+}
+
+/* ===================== Crypto helpers ===================== */
+async function sha256Hex(text){
+  const buf=await crypto.subtle.digest("SHA-256", enc.encode(text));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function b64FromBytes(bytes){let s="";bytes.forEach(b=>s+=String.fromCharCode(b));return btoa(s);}
+function bytesFromB64(b64){
+  const s=atob(b64); const out=new Uint8Array(s.length);
+  for(let i=0;i<s.length;i++) out[i]=s.charCodeAt(i);
+  return out;
+}
+function b64FromArrayBuffer(buf){
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+function arrayBufferFromB64(b64){
+  const bin=atob(b64);
+  const out=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+  return out.buffer;
+}
+function stableStringify(value){
+  const seen=new WeakSet();
+  const helper=(v)=>{
+    if(v===null || typeof v!=="object") return v;
+    if(seen.has(v)) throw new Error("CYCLE");
+    seen.add(v);
+    if(Array.isArray(v)) return v.map(helper);
+    const keys=Object.keys(v).sort();
+    const out={};
+    for(const k of keys) out[k]=helper(v[k]);
+    return out;
+  };
+  return JSON.stringify(helper(value));
+}
+
+/* ===================== AES-GCM (TX payload) ===================== */
+async function deriveAesKey(secret){
+  const base=await crypto.subtle.importKey("raw", enc.encode(secret), {name:"PBKDF2"}, false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    {name:"PBKDF2",salt:enc.encode("MWAL_SALT_V2"),iterations:100000,hash:"SHA-256"},
+    base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]
+  );
+}
+async function decryptJson(secret,packed){
+  const parts=String(packed||"").split("|");
+  if(parts.length!==3 || parts[0]!=="MWAL-AESGCM") throw new Error("BAD_CODE");
+  const iv=bytesFromB64(parts[1]);
+  const ct=bytesFromB64(parts[2]);
+  const key=await deriveAesKey(secret);
+  const ptBuf=await crypto.subtle.decrypt({name:"AES-GCM",iv},key,ct);
+  return JSON.parse(new TextDecoder().decode(ptBuf));
+}
+async function encryptJson(secret,obj){
+  const key=await deriveAesKey(secret);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const plaintext=enc.encode(JSON.stringify(obj));
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},key,plaintext));
+  return "MWAL-AESGCM|"+b64FromBytes(iv)+"|"+b64FromBytes(ct);
+}
+
+/* ===================== IndexedDB for CryptoKeyPair ===================== */
+function openSignDb(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(SIGN_DB_NAME, SIGN_DB_VER);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains(SIGN_STORE)) db.createObjectStore(SIGN_STORE);
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function idbGet(key){
+  const db=await openSignDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(SIGN_STORE,"readonly");
+    const store=tx.objectStore(SIGN_STORE);
+    const req=store.get(key);
+    req.onsuccess=()=>resolve(req.result||null);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function idbSet(key, val){
+  const db=await openSignDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(SIGN_STORE,"readwrite");
+    const store=tx.objectStore(SIGN_STORE);
+    const req=store.put(val, key);
+    req.onsuccess=()=>resolve(true);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function idbDel(key){
+  const db=await openSignDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(SIGN_STORE,"readwrite");
+    const store=tx.objectStore(SIGN_STORE);
+    const req=store.delete(key);
+    req.onsuccess=()=>resolve(true);
+    req.onerror=()=>reject(req.error);
+  });
+}
+
+/* ===================== Asymmetric signing (ECDSA P-256) ===================== */
+async function getOrCreateSigningKeyPair(){
+  let kp = await idbGet(SIGN_KEYPAIR_ID);
+  if(kp && kp.privateKey && kp.publicKey) return kp;
+  kp = await crypto.subtle.generateKey(
+    { name:"ECDSA", namedCurve:"P-256" },
+    false,
+    ["sign","verify"]
+  );
+  await idbSet(SIGN_KEYPAIR_ID, kp);
+  return kp;
+}
+async function exportPublicJwk(){
+  const kp=await getOrCreateSigningKeyPair();
+  return crypto.subtle.exportKey("jwk", kp.publicKey);
+}
+async function computeKeyIdFromJwk(jwk){
+  return sha256Hex(stableStringify(jwk));
+}
+async function signLedgerHashAsym(ledgerHash){
+  const kp=await getOrCreateSigningKeyPair();
+  const msg = enc.encode("MWAL_LEDGER_V5|" + ledgerHash);
+  const sig = await crypto.subtle.sign({ name:"ECDSA", hash:"SHA-256" }, kp.privateKey, msg);
+  return b64FromArrayBuffer(sig);
+}
+async function verifyLedgerHashAsym(ledgerHash, sigB64, pubJwk){
+  try{
+    const pubKey = await crypto.subtle.importKey(
+      "jwk", pubJwk, { name:"ECDSA", namedCurve:"P-256" }, true, ["verify"]
+    );
+    const msg = enc.encode("MWAL_LEDGER_V5|" + ledgerHash);
+    const sigBuf = arrayBufferFromB64(sigB64);
+    return crypto.subtle.verify({ name:"ECDSA", hash:"SHA-256" }, pubKey, sigBuf, msg);
+  }catch{ return false; }
+}
+
+/* ===================== MWAL Key parsing & proof validation ===================== */
+function parseKey(key){
+  const out={};
+  const parts=String(key||"").trim().split("|");
+  if(parts[0]!=="MWAL") return null;
+  for(const p of parts.slice(1)){
+    const i=p.indexOf("=");
+    if(i<0) continue;
+    out[p.slice(0,i)] = p.slice(i+1);
+  }
+  if(!out.TX || !out.TO || !out.AMOUNT) return null;
+  out.FROM = out.FROM ? decodeURIComponent(out.FROM) : "—";
+  out.LABEL = out.LABEL ? decodeURIComponent(out.LABEL) : "";
+  out.TS = out.TS ? decodeURIComponent(out.TS) : "";
+  return out;
+}
+async function validateProof(proof, expected){
+  if(!proof || typeof proof!=="object") return {ok:false,err:"JSON invalide"};
+  if(proof.protocol!==PROOF_PROTOCOL) return {ok:false,err:"BAD_PROTOCOL"};
+  if(proof.txId!==expected.txId) return {ok:false,err:"TX mismatch"};
+  if(proof.to!==expected.to) return {ok:false,err:"TO mismatch"};
+  if(!proof.rules || proof.rules.unitMWAL!==UNIT_MWAL_STR || proof.rules.intervalMs!==INTERVAL_MS) return {ok:false,err:"Rules mismatch"};
+  const blocks=Array.isArray(proof.blocks)?proof.blocks:[];
+  if(blocks.length===0) return {ok:false,err:"No blocks"};
+
+  let prev="GENESIS";
+  for(let i=0;i<blocks.length;i++){
+    const b=blocks[i];
+    if(String(b.amountMWAL)!==UNIT_MWAL_STR) return {ok:false,err:"Bad unit"};
+    if(b.prevHash!==prev) return {ok:false,err:"Chain broken"};
+    if(i>0){
+      const t0=Date.parse(blocks[i-1].timestamp);
+      const t1=Date.parse(b.timestamp);
+      if(!Number.isFinite(t0)||!Number.isFinite(t1)) return {ok:false,err:"Bad timestamp"};
+      if((t1-t0)!==INTERVAL_MS) return {ok:false,err:"Interval != 4s"};
+    }
+    const copy=Object.assign({},b); delete copy.hash;
+    const h=await sha256Hex(JSON.stringify(copy));
+    if(h!==b.hash) return {ok:false,err:"Bad hash"};
+    prev=b.hash;
+  }
+  if(proof.finalHash && proof.finalHash!==prev) return {ok:false,err:"Final hash mismatch"};
+  const provedAmount=round8(blocks.length*Number(UNIT_MWAL_STR));
+  const expAmount=Number(expected.amountMWAL);
+  if(Math.abs(provedAmount-expAmount)>1e-8) return {ok:false,err:"Amount mismatch"};
+  return {ok:true, provedAmount};
+}
+
+/* ===================== State ===================== */
+const defaultState=() => ({
+  posId:getOrCreatePosId(),
+  balance:0,
+  accepted:[],
+  consumedTx:{},
+  lastCheck:null,
+  posMining:null,
+  lastOutgoing:null
+});
+let S=null;
+function load(){
+  try{
+    const raw=localStorage.getItem(STORE_KEY);
+    if(!raw){ S=defaultState(); save(); return; }
+    S=Object.assign(defaultState(), JSON.parse(raw));
+    S.posId=getOrCreatePosId();
+    save();
+  }catch{
+    S=defaultState(); save();
+  }
+}
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(S)); }
+
+/* ===================== Render ===================== */
+function renderHeader(){ $("posIdLbl").textContent=S.posId; }
+function renderStats(){
+  $("balLbl").textContent=round8(S.balance).toFixed(8);
+  $("txCountLbl").textContent=String(S.accepted.length);
+}
+function renderHist(){
+  const box=$("hist"); box.innerHTML="";
+  if(!S.accepted.length){
+    box.innerHTML='<div class="small">Aucun encaissement.</div>';
+    return;
+  }
+  const view=S.accepted.slice().reverse().slice(0,60);
+  for(const tx of view){
+    const div=document.createElement("div");
+    div.className="item mono";
+    div.innerHTML=`<b>${tx.txId}</b><br/>from: ${tx.from}<br/>amount: ${Number(tx.amountMWAL).toFixed(8)} MWAL<br/><span class="small">proofHash: ${(String(tx.proofHash||"").slice(0,18))}… • ${tx.ts}</span>`;
+    box.appendChild(div);
+  }
+}
+
+/* ===================== Encaissement ===================== */
+function clearInputs(){
+  $("inKey").value=""; $("inCode").value=""; $("inProof").value="";
+  $("btnAccept").disabled=true;
+  S.lastCheck=null; save();
+  setStatus($("inStatus"),"Prêt.","");
+}
+async function check(){
+  try{
+    const keyRaw=$("inKey").value.trim();
+    const codeRaw=$("inCode").value.trim();
+    const proofRaw=$("inProof").value.trim();
+    if(!keyRaw||!codeRaw||!proofRaw){ setStatus($("inStatus"),"❌ Il faut : clé + code + JSON.","err"); return; }
+
+    const k=parseKey(keyRaw);
+    if(!k){ setStatus($("inStatus"),"❌ Clé MWAL invalide.","err"); return; }
+    if(k.TO!==S.posId){ setStatus($("inStatus"),`❌ TO ≠ cette caisse (${S.posId}).`,"err"); return; }
+    if(S.consumedTx[k.TX]){ setStatus($("inStatus"),"❌ TX déjà encaissée (replay).","err"); return; }
+
+    let proof;
+    try{ proof=JSON.parse(proofRaw); }catch{ setStatus($("inStatus"),"❌ JSON blocs invalide.","err"); return; }
+
+    const vProof=await validateProof(proof,{txId:k.TX,to:k.TO,amountMWAL:k.AMOUNT,from:k.FROM});
+    if(!vProof.ok){ setStatus($("inStatus"),"❌ Preuve invalide : "+vProof.err,"err"); return; }
+
+    const secret=$("secret").value.trim() || "MWAL_CORE_2025_V2_PROTOCOL";
+    let payload;
+    try{ payload=await decryptJson(secret,codeRaw); }catch{ setStatus($("inStatus"),"❌ Code chiffré illisible (secret ?).","err"); return; }
+
+    if(payload.protocol!==TX_PAYLOAD_PROTOCOL){ setStatus($("inStatus"),"❌ Mauvais protocole payload.","err"); return; }
+    if(payload.txId!==k.TX || payload.to!==k.TO){ setStatus($("inStatus"),"❌ Incohérence code ↔ clé.","err"); return; }
+    if(String(payload.amountMWAL)!==String(k.AMOUNT)){ setStatus($("inStatus"),"❌ Montant code ↔ clé différent.","err"); return; }
+
+    const proofHash=await sha256Hex(JSON.stringify(proof));
+    if(payload.proofHash!==proofHash){ setStatus($("inStatus"),"❌ proofHash mismatch (code ↔ JSON).","err"); return; }
+
+    S.lastCheck={ok:true,txId:k.TX,from:k.FROM,to:k.TO,amountMWAL:Number(k.AMOUNT),ts:k.TS||new Date().toISOString(),proofHash,key:keyRaw,code:codeRaw,proof};
+    save();
+    $("btnAccept").disabled=!instanceHasLock; // verrou d’instance
+    setStatus($("inStatus"), instanceHasLock ? "✅ Vérification OK. Tu peux encaisser." : "🔒 Vérification OK, mais lecture seule (autre onglet actif).", instanceHasLock ? "ok" : "warn");
+    log("✅ CHECK OK tx="+k.TX+" amount="+k.AMOUNT);
+  }catch(e){
+    setStatus($("inStatus"),"❌ Erreur interne: "+(e&&e.message?e.message:String(e)),"err");
+  }
+}
+function accept(){
+  if(!instanceHasLock){
+    setStatus($("inStatus"),"🔒 Lecture seule : encaissement bloqué (autre onglet actif).","warn");
+    return;
+  }
+  if(!S.lastCheck||!S.lastCheck.ok){ setStatus($("inStatus"),"❌ Rien à encaisser.","err"); return; }
+  const t=S.lastCheck;
+  S.balance=round8(S.balance+Number(t.amountMWAL));
+  S.accepted.push({txId:t.txId,from:t.from,to:t.to,amountMWAL:t.amountMWAL,ts:t.ts,proofHash:t.proofHash,codeOk:true});
+  S.consumedTx[t.txId]=true;
+  S.lastCheck=null;
+  save();
+  renderStats(); renderHist();
+  $("btnAccept").disabled=true;
+  setStatus($("inStatus"),"✅ Encaissement enregistré.","ok");
+  log("💰 ACCEPT tx="+t.txId+" +"+t.amountMWAL.toFixed(8));
+}
+
+/* ===================== POS Mining / Outgoing ===================== */
+function computeTargetBlocks(amountMWAL){
+  if(!(amountMWAL>0)) return 0;
+  const exact=amountMWAL/Number(UNIT_MWAL_STR);
+  const n=Math.round(exact);
+  return (Math.abs(exact-n)<1e-9) ? n : 0;
+}
+function updateOutInfo(){
+  const amt=Number($("outAmt").value||0);
+  if(!amt){ $("outInfo").textContent="—"; return; }
+  const n=computeTargetBlocks(amt);
+  if(n<=0){
+    const floorN=Math.floor(amt/Number(UNIT_MWAL_STR));
+    const proved=floorN*Number(UNIT_MWAL_STR);
+    const rem=amt-proved;
+    $("outInfo").textContent=`❌ Non multiple exact. blocs possibles=${floorN} (= ${round8(proved).toFixed(8)}), reste=${round8(rem).toFixed(8)}`;
+    return;
+  }
+  $("outInfo").textContent=`✅ ${n} bloc(s) → ~${n*4}s`;
+}
+
+let posTimer=null;
+function clearPosTimer(){ if(posTimer){ clearTimeout(posTimer); posTimer=null; } }
+
+async function makeBlock(prevHash,index,tsIso,txId){
+  const block={index,timestamp:tsIso,walletId:S.posId,txId,amountMWAL:UNIT_MWAL_STR,prevHash,nonce:crypto.getRandomValues(new Uint32Array(1))[0]};
+  block.hash=await sha256Hex(JSON.stringify(block));
+  return block;
+}
+function updatePosUI(){
+  const m=S.posMining;
+  const bar=$("posBar"); const txt=$("posTxt");
+  if(!m){
+    bar.style.width="0%"; txt.textContent="0 / 0";
+    $("btnPosPause").disabled=true; $("btnPosResume").disabled=true; $("btnPosCancel").disabled=true;
+    return;
+  }
+  const pct=m.targetBlocks?Math.min(100,(m.doneBlocks/m.targetBlocks)*100):0;
+  bar.style.width=pct.toFixed(1)+"%";
+  txt.textContent=`${m.doneBlocks} / ${m.targetBlocks}`;
+  $("btnPosPause").disabled=(!instanceHasLock || m.status!=="RUNNING");
+  $("btnPosResume").disabled=(!instanceHasLock || m.status!=="PAUSED");
+  $("btnPosCancel").disabled=(!instanceHasLock || (m.status!=="RUNNING" && m.status!=="PAUSED"));
+}
+async function posTick(){
+  const m=S.posMining;
+  if(!m||m.status!=="RUNNING") return;
+  const idx=m.doneBlocks;
+  const prevHash=(idx===0)?"GENESIS":m.blocks[idx-1].hash;
+  const canonTs=new Date(m.startTimeMs+idx*INTERVAL_MS).toISOString();
+  const blk=await makeBlock(prevHash,idx,canonTs,m.txId);
+  m.blocks.push(blk); m.doneBlocks+=1; save();
+  updatePosUI();
+  setStatus($("posStatus"),`⛏️ POS-mining bloc ${m.doneBlocks}/${m.targetBlocks}`,"ok");
+  if(m.doneBlocks>=m.targetBlocks){
+    m.status="DONE"; save(); clearPosTimer();
+    await finalizeOutgoing();
+    updatePosUI();
+    setStatus($("posStatus"),"✅ POS-mining terminé. Paquet prêt.","ok");
+    log("✅ POS DONE tx="+m.txId);
+    return;
+  }
+  clearPosTimer();
+  posTimer=setTimeout(()=>posTick(),INTERVAL_MS);
+}
+function validatePosInputs(){
+  const to=$("outTo").value.trim();
+  const from=$("outFrom").value.trim()||"caisse";
+  const label=$("outLabel").value.trim();
+  const amount=Number($("outAmt").value||0);
+  if(!/^MWAL-(POS|WALLET)-[A-Z0-9]{6,12}$/.test(to)) return {ok:false,err:"Adresse destinataire invalide (MWAL-POS-... ou MWAL-WALLET-...)."};
+  if(!(amount>0)) return {ok:false,err:"Montant invalide."};
+  if(!label) return {ok:false,err:"Libellé obligatoire (bien/service)."};
+  if(amount>S.balance+1e-12) return {ok:false,err:"Solde insuffisant."};
+  const n=computeTargetBlocks(amount);
+  if(n<=0) return {ok:false,err:"Montant non multiple exact de l’unité."};
+  return {ok:true,to,from,label,amount,blocks:n};
+}
+async function posStart(){
+  if(!instanceHasLock){
+    setStatus($("posStatus"),"🔒 Lecture seule : POS-mining bloqué (autre onglet actif).","warn");
+    return;
+  }
+  if(S.posMining && (S.posMining.status==="RUNNING"||S.posMining.status==="PAUSED")){
+    setStatus($("posStatus"),"⚠️ POS déjà en cours.","warn"); return;
+  }
+  const v=validatePosInputs();
+  if(!v.ok){ setStatus($("posStatus"),"❌ "+v.err,"err"); return; }
+
+  $("outKey").value=""; $("outCode").value=""; $("outProof").value=""; $("outChainDeposit").value="";
+  $("btnCopyOutKey").disabled=true; $("btnCopyOutCode").disabled=true;
+  $("btnExportOutProof").disabled=true; $("btnExportPackage").disabled=true; $("btnExportChainDeposit").disabled=true; $("btnExportObserver").disabled=true;
+  $("btnCopyOutProof").disabled=true; $("btnCopyChainDeposit").disabled=true;
+
+  const txId=uid("TX");
+  S.posMining={
+    protocol:PROOF_PROTOCOL,txId,walletId:S.posId,rules:{unitMWAL:UNIT_MWAL_STR,intervalMs:INTERVAL_MS},
+    to:v.to,from:v.from,label:v.label,amountMWAL:round8(v.amount),
+    targetBlocks:v.blocks,doneBlocks:0,blocks:[],status:"RUNNING",createdAt:new Date().toISOString(),startTimeMs:Date.now()
+  };
+  S.lastOutgoing=null; save();
+  updatePosUI();
+  setStatus($("posStatus"),`⛏️ POS-mining démarré : ${v.blocks} blocs (~${v.blocks*4}s).`,"ok");
+  log("⛏️ POS START tx="+txId+" to="+v.to+" amount="+v.amount.toFixed(8));
+  clearPosTimer();
+  posTimer=setTimeout(()=>posTick(),20);
+}
+function posPause(){ if(!instanceHasLock) return; if(!S.posMining||S.posMining.status!=="RUNNING")return; S.posMining.status="PAUSED"; save(); clearPosTimer(); updatePosUI(); setStatus($("posStatus"),"⏸ Pause.","warn"); }
+function posResume(){ if(!instanceHasLock) return; if(!S.posMining||S.posMining.status!=="PAUSED")return; S.posMining.status="RUNNING"; save(); updatePosUI(); setStatus($("posStatus"),"▶ Reprise.","ok"); clearPosTimer(); posTimer=setTimeout(()=>posTick(),20); }
+function posCancel(){ if(!instanceHasLock) return; if(!S.posMining||(S.posMining.status!=="RUNNING"&&S.posMining.status!=="PAUSED"))return; if(!confirm("Annuler POS-mining ?"))return; S.posMining=null; save(); clearPosTimer(); updatePosUI(); setStatus($("posStatus"),"✖ Annulé.","warn"); }
+
+async function finalizeOutgoing(){
+  const m=S.posMining;
+  if(!m||m.status!=="DONE") return;
+
+  const amountMWAL=round8(m.targetBlocks*Number(UNIT_MWAL_STR));
+  const key=["MWAL","TX="+m.txId,"FROM="+encodeURIComponent(m.from),"TO="+m.to,"AMOUNT="+amountMWAL.toFixed(8),"TS="+encodeURIComponent(m.createdAt),
+    m.label?("LABEL="+encodeURIComponent(m.label)):""].filter(Boolean).join("|");
+
+  const proof={protocol:PROOF_PROTOCOL,walletId:m.walletId,txId:m.txId,rules:{unitMWAL:UNIT_MWAL_STR,intervalMs:INTERVAL_MS},to:m.to,from:m.from,label:m.label||"",
+    createdAt:m.createdAt,blocks:m.blocks,finalHash:m.blocks.length?m.blocks[m.blocks.length-1].hash:"0"};
+
+  const secret=$("secret").value.trim() || "MWAL_CORE_2025_V2_PROTOCOL";
+  const proofHash=await sha256Hex(JSON.stringify(proof));
+  const payload={protocol:TX_PAYLOAD_PROTOCOL,txId:m.txId,from:m.from,to:m.to,amountMWAL:amountMWAL.toFixed(8),createdAt:m.createdAt,label:m.label||"",proofHash};
+  const code=await encryptJson(secret,payload);
+
+  S.lastOutgoing={key,code,proof}; save();
+  $("outKey").value=key; $("outCode").value=code; $("outProof").value=JSON.stringify(proof,null,2);
+  $("btnCopyOutKey").disabled=false; $("btnCopyOutCode").disabled=false;
+  $("btnExportOutProof").disabled=false; $("btnExportPackage").disabled=false; $("btnExportObserver").disabled=false; $("btnCopyOutProof").disabled=false;
+
+  const pkg={protocol:PACKAGE_PROTOCOL,key:S.lastOutgoing.key,code:S.lastOutgoing.code,proof:S.lastOutgoing.proof,createdAt:new Date().toISOString()};
+  const eurHintRaw=String(($("outEur")&&$("outEur").value)||"").trim();
+  const eurHint=(eurHintRaw && /^-?\d+(\.\d+)?$/.test(eurHintRaw)) ? eurHintRaw : "";
+  const amount20=(amountMWAL.toFixed(8) + "00000000000000000000").replace(/(\d+\.\d{20}).*/, "$1");
+  const chainDeposit={
+    protocol:"MWAL_CHAIN_DEPOSIT_V1",
+    origin:"CAISSE",
+    depositId:"DEP-"+m.txId,
+    receivedAt:Date.now(),
+    status:"LOCKED",
+    payload:Object.assign({},pkg,{asset:"MWAL",amount:String(amount20),label:m.label,finalTo:m.to,eurHint: eurHint || undefined})
+  };
+  $("outChainDeposit").value=JSON.stringify(chainDeposit,null,2);
+  $("btnExportChainDeposit").disabled=false;
+  $("btnCopyChainDeposit").disabled=false;
+
+  // débit immédiat
+  S.balance=round8(S.balance-amountMWAL);
+  save();
+  renderStats(); renderHist();
+  setStatus($("sysStatus"),"✅ Transfert prêt. Export le dépôt blockchain et colle-le dans la Blockchain OFFLINE (témoin).","ok");
+  log("➡️ OUT READY tx="+m.txId+" -"+amountMWAL.toFixed(8));
+  S.posMining=Object.assign({},m,{status:"ARCHIVED"}); save();
+}
+
+/* ===================== Download/copy ===================== */
+function downloadJson(obj,filename){
+  const json=JSON.stringify(obj,null,2);
+  const blob=new Blob([json],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+async function copyText(text){
+  if(!text) return false;
+  try{ await navigator.clipboard.writeText(text); return true; }catch{ return false; }
+}
+
+/* ===================== Ledger V5 (hash + signature asym) ===================== */
+async function buildLedgerV5(){
+  const pubJwk = await exportPublicJwk();
+  const keyId = await computeKeyIdFromJwk(pubJwk);
+
+  const base={
+    protocol: LEDGER_PROTOCOL_V5,
+    posId: S.posId,
+    balanceMWAL: round8(S.balance).toFixed(8),
+    accepted: S.accepted,
+    exportedAt: new Date().toISOString(),
+    signer: { alg:"ECDSA_P256_SHA256", keyId, pubJwk }
+  };
+
+  const canonical = {
+    protocol: base.protocol,
+    posId: base.posId,
+    balanceMWAL: base.balanceMWAL,
+    accepted: base.accepted,
+    exportedAt: base.exportedAt,
+    signer: base.signer
+  };
+
+  const ledgerHash = await sha256Hex(stableStringify(canonical));
+  const ledgerSigAsym = await signLedgerHashAsym(ledgerHash);
+
+  return Object.assign({}, base, { ledgerHash, ledgerSigAsym });
+}
+async function exportLedger(){
+  const data = await buildLedgerV5();
+  downloadJson(data, `MWAL_POS_LEDGER_${S.posId}.json`);
+  setStatus($("sysStatus"),"✅ Ledger exporté (V5 signé ECDSA).","ok");
+  log("📦 LEDGER EXPORT v5 pos="+S.posId+" keyId="+data.signer.keyId.slice(0,12));
+}
+
+/* ===================== Import ledger assistant ===================== */
+let importedLedgerCtx=null;
+
+function showLedgerModal(show){
+  $("ledgerModalBackdrop").style.display = show ? "flex" : "none";
+}
+function modalSetStatus(msg,cls){ setStatus($("ledgerModalStatus"), msg, cls); }
+function makePill(text, cls){
+  const el=document.createElement("div");
+  el.className="pilltag " + (cls||"");
+  el.textContent=text;
+  return el;
+}
+function summarizeLedgerKv(info){
+  const kv=$("ledgerSummaryKv");
+  kv.innerHTML="";
+  const row=(k,v)=>{
+    const kEl=document.createElement("div"); kEl.className="k"; kEl.textContent=k;
+    const vEl=document.createElement("div"); vEl.className="v mono"; vEl.textContent=v;
+    kv.appendChild(kEl); kv.appendChild(vEl);
+  };
+  row("Fichier", info.filename || "—");
+  row("Protocol", info.protocol || "—");
+  row("posId", info.posId || "—");
+  row("balance", info.balanceMWAL || "—");
+  row("accepted", String(info.txCount||0));
+  row("exportedAt", info.exportedAt || "—");
+  row("ledgerHash", info.ledgerHash ? (info.ledgerHash.slice(0,18)+"…") : "—");
+  row("sig", info.sig ? (info.sig.slice(0,18)+"…") : "—");
+  row("signerKeyId", info.signerKeyId ? (info.signerKeyId.slice(0,18)+"…") : "—");
+}
+
+async function parseAndVerifyLedger(rawObj){
+  const protocol = rawObj && rawObj.protocol;
+  if(protocol !== LEDGER_PROTOCOL_V3 && protocol !== LEDGER_PROTOCOL_V5){
+    return { ok:false, err:"Protocole ledger non supporté (V3/V5)." };
+  }
+  if(!rawObj.posId || !/^MWAL-POS-[A-Z0-9]{6,12}$/.test(rawObj.posId)){
+    return { ok:false, err:"posId invalide dans le ledger." };
+  }
+  if(!Array.isArray(rawObj.accepted)) return { ok:false, err:"Champ accepted invalide." };
+
+  const accepted = rawObj.accepted.map(t => ({
+    txId: String(t.txId||""),
+    from: String(t.from||"—"),
+    to: String(t.to||rawObj.posId||""),
+    amountMWAL: safeNum(t.amountMWAL),
+    ts: String(t.ts||""),
+    proofHash: String(t.proofHash||""),
+    codeOk: !!t.codeOk
+  })).filter(t => t.txId);
+
+  const normalized = {
+    protocol,
+    posId: rawObj.posId,
+    balanceMWAL: String(rawObj.balanceMWAL ?? "0.00000000"),
+    accepted,
+    exportedAt: String(rawObj.exportedAt||""),
+    signer: rawObj.signer || null,
+    ledgerHash: rawObj.ledgerHash ? String(rawObj.ledgerHash) : "",
+    ledgerSigAsym: rawObj.ledgerSigAsym ? String(rawObj.ledgerSigAsym) : ""
+  };
+
+  let computedHash="", hashOk=null, sigAsymOk=null;
+
+  if(protocol === LEDGER_PROTOCOL_V5){
+    const canonical = {
+      protocol: normalized.protocol,
+      posId: normalized.posId,
+      balanceMWAL: normalized.balanceMWAL,
+      accepted: normalized.accepted,
+      exportedAt: normalized.exportedAt,
+      signer: normalized.signer
+    };
+    computedHash = await sha256Hex(stableStringify(canonical));
+    hashOk = (normalized.ledgerHash && normalized.ledgerHash === computedHash);
+
+    const pubJwk = normalized.signer && normalized.signer.pubJwk;
+    if(pubJwk && normalized.ledgerSigAsym && normalized.ledgerHash){
+      sigAsymOk = await verifyLedgerHashAsym(normalized.ledgerHash, normalized.ledgerSigAsym, pubJwk);
+    }else{
+      sigAsymOk = false;
+    }
+  }
+
+  return { ok:true, normalized, verify:{ computedHash, hashOk, sigAsymOk } };
+}
+
+function getSelectedLedgerMode(){
+  const radios = document.querySelectorAll('input[name="ledgerMode"]');
+  for(const r of radios) if(r.checked) return r.value;
+  return "restore";
+}
+function applyLedgerRestore(ledger){
+  const consumedTx = {};
+  for(const tx of ledger.accepted) consumedTx[tx.txId]=true;
+
+  const nextState = {
+    posId: ledger.posId,
+    balance: safeNum(ledger.balanceMWAL),
+    accepted: ledger.accepted,
+    consumedTx,
+    lastCheck: null,
+    posMining: null,
+    lastOutgoing: null
+  };
+
+  localStorage.setItem(STORE_KEY, JSON.stringify(nextState));
+  localStorage.setItem(POS_ID_KEY, ledger.posId);
+}
+function applyLedgerMerge(ledger){
+  const existingConsumed = S.consumedTx || {};
+  const added = [];
+  for(const tx of ledger.accepted){
+    if(!existingConsumed[tx.txId]) added.push(tx);
+  }
+  if(!added.length) return { addedCount:0, addedAmount:0 };
+  const addAmount = round8(added.reduce((acc,t)=>acc + safeNum(t.amountMWAL),0));
+  S.balance = round8(S.balance + addAmount);
+  for(const tx of added){
+    S.accepted.push(tx);
+    S.consumedTx[tx.txId]=true;
+  }
+  save();
+  return { addedCount: added.length, addedAmount: addAmount };
+}
+
+function openLedgerAssistant(file, obj, parsed){
+  importedLedgerCtx = { file, obj, parsed };
+  const ledger = parsed.normalized;
+  const ver = parsed.verify;
+
+  summarizeLedgerKv({
+    filename: file ? file.name : "—",
+    protocol: ledger.protocol,
+    posId: ledger.posId,
+    balanceMWAL: ledger.balanceMWAL,
+    txCount: ledger.accepted.length,
+    exportedAt: ledger.exportedAt || "—",
+    ledgerHash: ledger.ledgerHash || "",
+    sig: ledger.ledgerSigAsym || "",
+    signerKeyId: ledger.signer && ledger.signer.keyId ? ledger.signer.keyId : ""
+  });
+
+  const pills = $("ledgerPills");
+  pills.innerHTML="";
+
+  if(ledger.protocol === LEDGER_PROTOCOL_V5){
+    pills.appendChild(makePill("Ledger V5", "ok"));
+    pills.appendChild(makePill(ver.hashOk ? "Hash OK" : "Hash mismatch", ver.hashOk ? "ok":"err"));
+    pills.appendChild(makePill(ver.sigAsymOk ? "Signature ECDSA OK" : "Signature ECDSA invalide", ver.sigAsymOk ? "ok":"err"));
+
+    const localKeyId = $("sigKeyId").value || "";
+    const ledgerKeyId = ledger.signer && ledger.signer.keyId ? ledger.signer.keyId : "";
+    if(localKeyId && ledgerKeyId){
+      if(localKeyId === ledgerKeyId) pills.appendChild(makePill("Signé par CETTE caisse", "ok"));
+      else pills.appendChild(makePill("Signé par une autre caisse", "warn"));
+    }
+
+    if(LEDGER_SAFE_MODE) pills.appendChild(makePill("Coffre-fort ON", "ok"));
+  }else{
+    pills.appendChild(makePill("Ledger V3 (ancien)", "warn"));
+    pills.appendChild(makePill("Pas de signature ECDSA", "warn"));
+  }
+
+  if(!instanceHasLock){
+    pills.appendChild(makePill("Lecture seule (autre onglet actif)", "warn"));
+  }
+
+  $("ledgerPreview").textContent = JSON.stringify(obj, null, 2).slice(0, 50000);
+  document.querySelector('input[name="ledgerMode"][value="restore"]').checked = true;
+
+  modalSetStatus("Prêt. Choisis un mode puis “Appliquer”.", "");
+  showLedgerModal(true);
+
+  // applique immédiatement l’UI lock (désactive Appliquer si besoin)
+  enforceInstanceLockUI();
+}
+
+function importLedgerFile(file){
+  const r=new FileReader();
+  r.onload = async () => {
+    try{
+      const txt = String(r.result||"").trim();
+      const obj = JSON.parse(txt);
+      modalSetStatus("⏳ Analyse du ledger…","warn");
+
+      const parsed = await parseAndVerifyLedger(obj);
+      if(!parsed.ok){
+        alert("❌ Ledger invalide :\n" + parsed.err);
+        return;
+      }
+      openLedgerAssistant(file, obj, parsed);
+      log("📥 LEDGER LOADED file="+file.name);
+    }catch(e){
+      alert("❌ Import ledger impossible :\n" + (e&&e.message?e.message:String(e)));
+    }
+  };
+  r.readAsText(file);
+}
+
+/* ===================== Reset ===================== */
+function resetAll(){
+  if(!instanceHasLock){
+    setStatus($("sysStatus"),"🔒 Lecture seule : reset bloqué (autre onglet actif).","warn");
+    return;
+  }
+  if(!confirm("Reset caisse ?")) return;
+  localStorage.removeItem(STORE_KEY);
+  localStorage.removeItem(POS_ID_KEY);
+  location.reload();
+}
+
+/* ===================== Wire UI ===================== */
+function wire(){
+  $("btnCopyPos").addEventListener("click",async()=>{
+    const ok=await copyText(S.posId);
+    setStatus($("sysStatus"), ok?"✅ ID caisse copié.":"❌ Copie impossible.", ok?"ok":"err");
+  });
+
+  $("btnQuickReceive").addEventListener("click",()=>{
+    const inp=$("importPackage");
+    inp.value="";
+    inp.click();
+  });
+
+  $("importPackage").addEventListener("change",(e)=>{
+    const file=e.target.files&&e.target.files[0];
+    if(!file) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const txt=String(r.result||"").trim();
+        const obj=JSON.parse(txt);
+        if(!obj || obj.protocol!==PACKAGE_PROTOCOL) throw new Error("BAD_PACKAGE");
+        if(!obj.key || !obj.code || !obj.proof) throw new Error("INCOMPLETE_PACKAGE");
+        $("inKey").value=String(obj.key);
+        $("inCode").value=String(obj.code);
+        $("inProof").value=JSON.stringify(obj.proof,null,2);
+        setStatus($("inStatus"),"✅ Paquet MWAL importé. Vérification automatique…","warn");
+        check().then(()=>{ if(!$("btnAccept").disabled) accept(); });
+      }catch{
+        setStatus($("inStatus"),"❌ Paquet MWAL invalide.","err");
+      }
+    };
+    r.readAsText(file);
+  });
+
+  $("importProof").addEventListener("change",(e)=>{
+    const file=e.target.files&&e.target.files[0];
+    if(!file) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const txt=String(r.result||"").trim();
+        JSON.parse(txt);
+        $("inProof").value=txt;
+        setStatus($("inStatus"),"✅ JSON importé. Clique “Vérifier”.","ok");
+      }catch{
+        setStatus($("inStatus"),"❌ JSON invalide.","err");
+      }
+    };
+    r.readAsText(file);
+  });
+
+  $("btnCheck").addEventListener("click",check);
+  $("btnAccept").addEventListener("click",accept);
+  $("btnClear").addEventListener("click",clearInputs);
+
+  $("outAmt").addEventListener("input",updateOutInfo);
+  $("btnPosStart").addEventListener("click",posStart);
+  $("btnPosPause").addEventListener("click",posPause);
+  $("btnPosResume").addEventListener("click",posResume);
+  $("btnPosCancel").addEventListener("click",posCancel);
+
+  $("btnCopyOutKey").addEventListener("click",async()=>{
+    const ok=await copyText($("outKey").value);
+    setStatus($("posStatus"), ok?"✅ Clé copiée.":"❌ Copie impossible.", ok?"ok":"err");
+  });
+  $("btnCopyOutCode").addEventListener("click",async()=>{
+    const ok=await copyText($("outCode").value);
+    setStatus($("posStatus"), ok?"✅ Code copié.":"❌ Copie impossible.", ok?"ok":"err");
+  });
+  $("btnCopyOutProof").addEventListener("click",async()=>{
+    const ok=await copyText($("outProof").value);
+    setStatus($("posStatus"), ok?"✅ JSON copié.":"❌ Copie impossible.", ok?"ok":"err");
+  });
+
+  $("btnExportOutProof").addEventListener("click",()=>{
+    if(!S.lastOutgoing||!S.lastOutgoing.proof){ setStatus($("posStatus"),"❌ Rien à exporter.","err"); return; }
+    downloadJson(S.lastOutgoing.proof,`MWAL_POS_PROOF_${S.posId}_${S.lastOutgoing.proof.txId}.json`);
+  });
+  $("btnExportPackage").addEventListener("click",()=>{
+    if(!S.lastOutgoing||!S.lastOutgoing.proof){ setStatus($("posStatus"),"❌ Rien à exporter.","err"); return; }
+    const pkg={protocol:PACKAGE_PROTOCOL,key:S.lastOutgoing.key,code:S.lastOutgoing.code,proof:S.lastOutgoing.proof,createdAt:new Date().toISOString()};
+    downloadJson(pkg,`MWAL_POS_PACKAGE_${S.posId}_${S.lastOutgoing.proof.txId}.mwal.json`);
+    setStatus($("posStatus"),"✅ Paquet exporté.","ok");
+  });
+  $("btnExportChainDeposit").addEventListener("click",()=>{
+    const raw=$("outChainDeposit").value.trim();
+    if(!raw){ setStatus($("posStatus"),"❌ Rien à exporter (dépôt blockchain).","err"); return; }
+    try{
+      const obj=JSON.parse(raw);
+      downloadJson(obj,`MWAL_POS_CHAIN_DEPOSIT_${S.posId}_${(S.lastOutgoing&&S.lastOutgoing.proof&&S.lastOutgoing.proof.txId)||Date.now()}.json`);
+      setStatus($("posStatus"),"✅ Dépôt blockchain exporté.","ok");
+    }catch{
+      setStatus($("posStatus"),"❌ Dépôt blockchain invalide.","err");
+    }
+  });
+  $("btnCopyChainDeposit").addEventListener("click",async ()=>{
+    const ok=await copyText($("outChainDeposit").value);
+    setStatus($("posStatus"), ok ? "📋 Dépôt blockchain copié." : "❌ Copie impossible.","warn");
+  });
+  $("btnExportObserver").addEventListener("click",()=>{
+    if(!S.lastOutgoing||!S.lastOutgoing.proof){ setStatus($("posStatus"),"❌ Rien à exporter.","err"); return; }
+    const obsPkg={
+      protocol:"MWAL_OBSERVER_PACKAGE_V1",
+      exportedAt:new Date().toISOString(),
+      source:{ type:"POS", id:S.posId },
+      package:{ protocol:PACKAGE_PROTOCOL, key:S.lastOutgoing.key, code:S.lastOutgoing.code, proof:S.lastOutgoing.proof, createdAt:new Date().toISOString() }
+    };
+    downloadJson(obsPkg,`MWAL_POS_OBS_${S.posId}_${S.lastOutgoing.proof.txId}.json`);
+    setStatus($("posStatus"),"✅ Export observation prêt.","ok");
+  });
+
+  // Ledger export/import
+  $("btnExportLedger").addEventListener("click",()=>{ exportLedger().catch(e=>alert("❌ Export ledger: "+(e&&e.message?e.message:e))); });
+  $("btnImportLedger").addEventListener("click",()=>{
+    $("importLedger").value="";
+    $("importLedger").click();
+  });
+  $("importLedger").addEventListener("change",(e)=>{
+    const file=e.target.files&&e.target.files[0];
+    if(file) importLedgerFile(file);
+  });
+
+  // Modal
+  $("btnCloseLedgerModal").addEventListener("click",()=>showLedgerModal(false));
+  $("btnLedgerCancel").addEventListener("click",()=>showLedgerModal(false));
+
+  $("btnLedgerApply").addEventListener("click",async ()=>{
+    try{
+      if(!instanceHasLock){
+        modalSetStatus("🔒 Lecture seule : appliquer est bloqué (autre onglet actif).","warn");
+        return;
+      }
+      if(!importedLedgerCtx || !importedLedgerCtx.parsed || !importedLedgerCtx.parsed.normalized){
+        modalSetStatus("❌ Aucun ledger chargé.","err");
+        return;
+      }
+      const mode=getSelectedLedgerMode();
+      const ledger=importedLedgerCtx.parsed.normalized;
+      const ver=importedLedgerCtx.parsed.verify;
+
+      if(ledger.protocol===LEDGER_PROTOCOL_V5){
+        if(ver.hashOk !== true){
+          modalSetStatus("❌ Hash du ledger invalide.","err");
+          return;
+        }
+        if(ver.sigAsymOk !== true){
+          modalSetStatus("❌ Signature ECDSA invalide : import bloqué.","err");
+          return;
+        }
+        if(LEDGER_SAFE_MODE && mode!=="readonly"){
+          const localKeyId = $("sigKeyId").value;
+          const ledgerKeyId = ledger.signer && ledger.signer.keyId;
+          if(!ledgerKeyId || ledgerKeyId !== localKeyId){
+            modalSetStatus(
+              "🔐 Mode coffre-fort actif :\n" +
+              "ce ledger n’a PAS été signé par cette caisse.\n" +
+              "Restauration et fusion interdites.",
+              "err"
+            );
+            return;
+          }
+        }
+      }else{
+        if(mode!=="readonly"){
+          modalSetStatus("⚠️ Ledger ancien (V3) : pas de signature ECDSA.","warn");
+          if(!confirm("Ledger V3 : continuer quand même ?")) return;
+        }
+      }
+
+      if(mode==="readonly"){
+        modalSetStatus("👁️ Lecture seule : aucun changement appliqué.","ok");
+        log("👁️ LEDGER READONLY pos="+ledger.posId+" tx="+ledger.accepted.length);
+        return;
+      }
+
+      if(mode==="restore"){
+        if(!confirm("Restaurer va ÉCRASER la caisse locale. Continuer ?")) return;
+        applyLedgerRestore(ledger);
+        modalSetStatus("✅ Restauré. Redémarrage…","ok");
+        log("✅ LEDGER RESTORE pos="+ledger.posId);
+        setTimeout(()=>location.reload(), 200);
+        return;
+      }
+
+      if(mode==="merge"){
+        const res = applyLedgerMerge(ledger);
+        renderHeader(); renderStats(); renderHist();
+        modalSetStatus(`✅ Fusion OK : +${res.addedCount} TX ( +${res.addedAmount.toFixed(8)} MWAL )`,"ok");
+        log(`🧠 LEDGER MERGE +${res.addedCount} +${res.addedAmount.toFixed(8)}MWAL fromLedgerPos=${ledger.posId}`);
+        return;
+      }
+
+    }catch(e){
+      modalSetStatus("❌ Erreur: "+(e&&e.message?e.message:String(e)),"err");
+    }
+  });
+
+  $("btnResetAll").addEventListener("click",resetAll);
+
+  // Signing identity UI
+  $("btnExportPubKey").addEventListener("click", async ()=>{
+    try{
+      const jwk = await exportPublicJwk();
+      const keyId = await computeKeyIdFromJwk(jwk);
+      downloadJson({protocol:"MWAL_PUBKEY_V1", alg:"ECDSA_P256_SHA256", keyId, pubJwk:jwk, exportedAt:new Date().toISOString()}, `MWAL_PUBKEY_${keyId.slice(0,12)}.json`);
+      setStatus($("sysStatus"),"✅ Clé publique exportée.","ok");
+      log("🔓 PUBKEY EXPORT keyId="+keyId.slice(0,12));
+    }catch(e){
+      setStatus($("sysStatus"),"❌ Export pubkey : "+(e&&e.message?e.message:String(e)),"err");
+    }
+  });
+
+  $("btnRotateKeys").addEventListener("click", async ()=>{
+    if(!instanceHasLock){
+      setStatus($("sysStatus"),"🔒 Lecture seule : rotation bloquée (autre onglet actif).","warn");
+      return;
+    }
+    if(!confirm("Rotation clés = tu casses la continuité de signature. Continuer ?")) return;
+    if(!confirm("Dernier avertissement : anciens ledgers V5 ne seront plus restaurables en coffre-fort. Continuer ?")) return;
+    await idbDel(SIGN_KEYPAIR_ID);
+    const kp = await getOrCreateSigningKeyPair();
+    const jwk = await crypto.subtle.exportKey("jwk", kp.publicKey);
+    const keyId = await computeKeyIdFromJwk(jwk);
+    $("sigKeyId").value = keyId;
+    setStatus($("sysStatus"),"⚠️ Rotation effectuée (nouvelle identité).","warn");
+    log("🔁 KEY ROTATE newKeyId="+keyId.slice(0,12));
+  });
+}
+
+/* ===================== Init signature identity ===================== */
+async function initSigningIdentity(){
+  const kp = await getOrCreateSigningKeyPair();
+  const jwk = await crypto.subtle.exportKey("jwk", kp.publicKey);
+  const keyId = await computeKeyIdFromJwk(jwk);
+  $("sigKeyId").value = keyId;
+  log("🔐 SIGN ID ready keyId="+keyId.slice(0,12));
+}
+
+/* ===================== Init ===================== */
+load();
+renderHeader();
+renderStats();
+renderHist();
+wire();
+updateOutInfo();
+
+/* ===== Acquire lock AFTER UI is ready ===== */
+instanceHasLock = acquireInstanceLock();
+if(instanceHasLock){
+  startInstanceHeartbeat();
+  log("🔒 Instance lock ACQUIS id="+INSTANCE_ID);
+}else{
+  log("🚫 Instance lock REFUSÉ (autre onglet actif)");
+  startReclaimLoop();
+}
+enforceInstanceLockUI();
+
+/* ===== React to other tabs ===== */
+window.addEventListener("storage", (e)=>{
+  if(e.key !== INSTANCE_LOCK_KEY) return;
+  const now = Date.now();
+  const lock = _readLock();
+  if(lock && lock.id !== INSTANCE_ID && (now - lock.ts) < INSTANCE_LOCK_TTL){
+    if(instanceHasLock){
+      instanceHasLock = false;
+      stopInstanceHeartbeat();
+      log("🚫 Instance lock PERDU (autre onglet actif)");
+      enforceInstanceLockUI();
+    }
+  }else{
+    const ok = acquireInstanceLock();
+    if(ok && !instanceHasLock){
+      instanceHasLock = true;
+      startInstanceHeartbeat();
+      log("🔒 Instance lock ACQUIS (storage) id="+INSTANCE_ID);
+      enforceInstanceLockUI();
+    }
+  }
+});
+
+/* ===== Release on exit ===== */
+window.addEventListener("beforeunload", ()=>{
+  releaseInstanceLock();
+  stopInstanceHeartbeat();
+});
+
+/* ===== Init signature ===== */
+initSigningIdentity().then(()=>{
+  if(instanceHasLock){
+    setStatus($("sysStatus"),"✅ Caisse prête. (Coffre-fort ON + verrou anti-onglets ON)","ok");
+  }else{
+    // message déjà mis par enforceInstanceLockUI()
+    setStatus($("sysStatus"),
+      "🔒 Une autre instance de la caisse est active.\nCette instance est en lecture seule (anti-duplication d’onglets).",
+      "warn"
+    );
+  }
+  log("✅ Caisse OFFLINE chargée id="+S.posId);
+}).catch(e=>{
+  setStatus($("sysStatus"),"❌ Signature init : "+(e&&e.message?e.message:String(e)),"err");
+  log("❌ SIGN INIT failed");
+});
+})();
+</script>
+</body>
+</html>
