@@ -1,0 +1,1344 @@
+<html><head><base href="."><script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+body.dark-mode {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+.dark-mode h1, .dark-mode h2, .dark-mode h3 {
+    color: #ffffff;
+}
+
+.dark-mode #stats, .dark-mode .base64-section {
+    background: #2d2d2d;
+    color: #ffffff;
+}
+
+.dark-mode .qr-frame {
+    border-color: #ffffff;
+    background: #ffffff;
+}
+
+.dark-mode .banknote-container {
+    border-color: #ffffff;
+}
+
+.dark-mode button {
+    background: #565656;
+    color: #ffffff;
+}
+
+.dark-mode button:hover {
+    background: #676767;
+}
+
+.dark-mode input {
+    background: #2d2d2d;
+    color: #ffffff;
+    border: 1px solid #565656;
+}
+
+.dark-mode .mwollowm-display {
+    color: #ffffff;
+}
+
+.na1c142-section {
+    margin: 20px 0;
+    padding: 20px;
+    background: rgba(64, 224, 208, 0.1);
+    border-radius: 8px;
+}
+
+.center-qr {
+    position: absolute;
+    left: 60%; 
+    transform: translateX(-50%) scale(0.95);
+    top: 15mm; 
+}
+
+.base64-section {
+    background: #f5f5f5;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+#base64Content {
+    word-break: break-all;
+    font-family: monospace;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.dark-mode .base64-section {
+    background: #2d2d2d;
+    color: #ffffff;
+}
+
+.dark-mode #base64Content {
+    background: #3d3d3d;
+    color: #ffffff;
+    border-color: #565656;
+}
+
+.banknote-container {
+    width: 180mm;
+    height: 82mm;
+    border: 2px solid #333;
+    margin: 20px auto;
+    position: relative;
+    padding: 10mm;
+    box-sizing: border-box;
+}
+
+.reverse-side {
+  margin-top: 40px;
+}
+
+.reverse-qr {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 5px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  border: 2px solid #333;
+  transform-origin: center;
+  scale: 0.9;
+}
+
+.mwollowm-display {
+    position: absolute;
+    bottom: 10mm;
+    right: 10mm;
+    font-size: 14px;
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 5px 10px;
+    border-radius: 4px;
+    z-index: 2;
+}
+
+.uploaded-image {
+    position: absolute;
+    max-width: 100%;
+    max-height: 100%;
+    opacity: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    z-index: 0;
+}
+
+.qr-codes-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 1;
+    background: transparent;
+}
+
+.qr-frame {
+    background: white;
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border: 2px solid #333;
+}
+
+.left-qr {
+    transform: scale(0.9);
+    transform-origin: left top;
+    margin-right: 20px; 
+}
+
+.right-qr {
+    transform: scale(0.8);
+    transform-origin: right top;
+}
+
+#miningStatus {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+#controls {
+    margin: 20px 0;
+}
+
+.input-group {
+    margin: 20px 0;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.input-group input {
+    padding: 5px;
+    width: 200px;
+}
+
+button {
+    font-size: 16px;
+    margin: 10px;
+    padding: 10px 20px;
+    background: #4285f4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+button:hover {
+    background: #356ac3;
+}
+
+#stats {
+    background: #f5f5f5;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+#currentHash {
+    word-break: break-all;
+    font-family: monospace;
+}
+
+#darkModeBtn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+#printBtn {
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  z-index: 1000;
+  background: #34a853;
+}
+
+#printBtn:hover {
+  background: #2d8f46;
+}
+
+.dark-mode #printBtn {
+  background: #565656;
+  color: #ffffff;
+}
+
+.dark-mode #printBtn:hover {
+  background: #676767;
+}
+
+.result {
+    font-size: 1.2em;
+    margin-top: 20px;
+}
+
+.chart-container {
+  width: 100%;
+  height: 300px;
+  margin: 20px 0;
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.dark-mode .chart-container {
+  background: #2d2d2d;
+}
+
+.token-number {
+    position: absolute;
+    top: 15mm;  
+    left: 50%; 
+    transform: translateX(-50%); 
+    font-size: 32px;  
+    font-weight: bold;
+    color: #000;
+    z-index: 4; 
+    text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.8);
+}
+
+.dark-mode .token-number {
+    color: #fff;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.qr-data-display {
+  position: absolute;
+  bottom: 1mm; 
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #333;
+  width: 100%;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.8); 
+  padding: 5px;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.dark-mode .qr-data-display {
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.traffic-light {
+  position: fixed;
+  top: 100px;
+  right: 20px;
+  width: 50px;
+  height: 140px;
+  background: #333;
+  border-radius: 10px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 1000;
+}
+
+.light {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #666;
+}
+
+.light.red {
+  background: #ff0000;
+}
+
+.light.yellow {
+  background: #ffff00;
+}
+
+.light.green {
+  background: #00ff00;
+}
+
+.message {
+  position: fixed;
+  top: 250px;
+  right: 20px;
+  color: lime;
+  font-weight: bold;
+  font-size: 18px;
+  display: none;
+  z-index: 1000;
+}
+
+.dark-mode .traffic-light {
+  background: #222;
+}
+
+.na1c142-list {
+  margin-top: 10px;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.na1c142-item {
+  margin: 5px 0;
+  padding: 5px;
+  background: rgba(64, 224, 208, 0.05);
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.dark-mode .na1c142-item {
+  background: rgba(64, 224, 208, 0.1);
+}
+
+#captureBtn, #pdfBtn {
+  margin: 10px;
+  padding: 10px 20px;
+  background: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+#captureBtn:hover, #pdfBtn:hover {
+  background: #356ac3;
+}
+
+.dark-mode #captureBtn, .dark-mode #pdfBtn {
+  background: #565656;
+  color: #ffffff;
+}
+
+.dark-mode #captureBtn:hover, .dark-mode #pdfBtn:hover {
+  background: #676767;
+}
+
+.input-group div {
+  margin: 5px 0;
+}
+
+@keyframes computerScreen {
+  0% { content: "💻 01010"; }
+  25% { content: "💻 10101"; }
+  50% { content: "💻 11001"; }
+  75% { content: "💻 00110"; }
+  100% { content: "💻 01010"; }
+}
+
+@keyframes slide {
+  from { transform: translateX(-10px); }
+  to { transform: translateX(10px); }
+}
+
+.mining-animation::after {
+  content: "💻 01010";
+  animation: computerScreen 2s infinite steps(1), slide 1.5s infinite alternate ease-in-out;
+  font-size: 1.5em;
+  vertical-align: middle;
+  display: inline-block;
+  text-shadow: 0 0 5px rgba(0,255,0,0.7);
+  font-family: monospace;
+}
+
+.mining-console {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80vw;
+  height: 60vh;
+  background: black;
+  border: 2px solid lime;
+  padding: 20px;
+  font-family: 'Courier New', monospace;
+  overflow: auto;
+  display: none;
+  z-index: 1001;
+  resize: both;
+  overflow: auto;
+  min-width: 300px;
+  min-height: 200px;
+  cursor: move;
+  scroll-behavior: smooth;
+}
+
+.mining-console.dragging {
+  user-select: none;
+  opacity: 0.9;
+}
+
+.mining-console pre {
+  color: lime;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  animation: scrollText 1s linear infinite;
+}
+
+@keyframes scrollText {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-5px); } 
+}
+
+.show-console {
+  display: block !important;
+}
+
+#toggleConsoleBtn {
+  position: fixed;
+  top: 250px;
+  right: 20px;
+  z-index: 1000;
+  background: #4285f4;
+}
+
+.dark-mode #toggleConsoleBtn {
+  background: #565656;
+  color: #ffffff;
+}
+
+.dark-mode #toggleConsoleBtn:hover {
+  background: #676767;
+}
+
+.dark-mode .uploaded-image {
+  filter: none !important; 
+}
+</style>
+</head><body>
+<button onclick="toggleDarkMode()" id="darkModeBtn">Mode Nuit</button>
+<button onclick="generatePDF()" id="printBtn">Imprimer en PDF</button>
+
+<h1>MwollowMining Application</h1>
+
+<h2>&#xc9;tat du minage</h2>
+<div id="miningStatus">Inactive <span class="mining-animation" style="display:none"></span></div>
+
+<div id="controls">
+  <button onclick="startMining()">Commencer le minage</button>
+  <button id="pauseBtn" onclick="togglePause()">Pause</button>
+  <button onclick="stopMining()">Arr&#xea;ter</button>
+</div>
+
+
+<div class="input-group">
+  <label for="walletInput">ID / Wallet du mineur :Important indiquez: 🟩 Détail des préfixes :
+✅ Préfixe "C"
+
+    Signifie : "Capture" automatique activée
+
+    Fonction : une capture d’écran du billet est générée automatiquement lors du minage.
+
+    Affiché dans l’interface : wallet 21 - C
+
+✅ Préfixe "P"
+
+    Signifie : "PDF" automatique activé
+
+    Fonction : une version PDF du billet est générée automatiquement lors du minage.
+
+    Affiché dans l’interface : wallet 21 - P
+
+✅ Préfixe "CP"
+
+    Signifie : "Capture" et "PDF" automatiques activés
+
+    Fonction : les deux automatisations (capture + PDF) sont effectuées automatiquement.
+
+    Affiché dans l’interface : wallet 21 - CP
+
+❌ Sans préfixe
+
+    Signifie : Aucune automatisation activée
+
+    Fonction : le billet est généré manuellement par l’utilisateur. </label>
+  <input type="text" id="walletInput" placeholder="Ex: WALLET001">
+</div>
+<div class="input-group">
+
+  <label for="manualInput">serial number</label>
+  <input type="number" id="manualInput" readonly onchange="calculateMwollowm()">
+</div>
+
+<div class="input-group">
+  <label for="difficulty">Difficult&#xe9; (nombre de z&#xe9;ros):</label>
+  <input type="number" id="difficulty" min="1" max="10" value="1">
+</div>
+
+<div class="input-group">
+  <label for="imageUpload">Ajouter une image au billet:</label>
+  <input type="file" id="imageUpload" accept="image/*" onchange="handleImageUpload(event)">
+</div>
+
+<div class="input-group">
+  <label>Options d&apos;automatisation:</label>
+  <div>
+    <input type="checkbox" id="autoScreenshots" checked>
+    <label for="autoScreenshots">Captures d&apos;&#xe9;cran automatiques</label>
+  </div>
+  <div>
+    <input type="checkbox" id="autoPDF" checked>
+    <label for="autoPDF">G&#xe9;n&#xe9;ration PDF automatique</label>
+  </div>
+</div>
+
+<button onclick="manualCapture()" id="captureBtn">Capture d&apos;&#xe9;cran</button>
+<button onclick="generatePDF()" id="pdfBtn">G&#xe9;n&#xe9;rer PDF</button>
+
+<!-- NA1C142 Conversion Section -->
+<div class="na1c142-section">
+  <label for="inputValue">NA1C142</label><br>
+  <input type="text" id="inputValue" placeholder="Nombre g&#xe9;n&#xe9;r&#xe9; automatiquement" readonly><br>
+  <button onclick="convertToLetters()">Convertir et G&#xe9;n&#xe9;rer QR Code</button>
+  <div class="result" id="result"></div>
+  <div class="na1c142-list" id="na1c142List"></div>
+  <div id="qrErrorMsg" style="color: red; display: none;"></div>
+</div>
+
+<div class="banknote-container">
+  <img id="uploadedImage" class="uploaded-image">
+  <div class="qr-codes-wrapper">
+    <div id="qrcode" class="qr-frame left-qr"></div>
+    <div id="na1c142qr" class="qr-frame center-qr"></div>
+    <div id="base64qrcode" class="qr-frame right-qr"></div>
+  </div>
+  <div class="mwollowm-display">
+    <span id="banknoteAmount">0.0000000000000000000</span> serial number
+  </div>
+  <div class="token-number">1</div>
+</div>
+
+<div class="banknote-container reverse-side">
+  <img id="uploadedImageReverse" class="uploaded-image">
+  <div id="reverseQrcode" class="reverse-qr"></div>
+  <div class="qr-data-display" id="reverseQrData"></div>
+  <div class="mwollowm-display">
+    <span>0.0000069444444444</span> MWM
+  </div>
+  <div class="token-number">1</div>
+</div>
+
+<div class="input-group">
+  <label for="imageUploadReverse">Ajouter une image au verso du billet:</label>
+  <input type="file" id="imageUploadReverse" accept="image/*" onchange="handleReverseImageUpload(event)">
+</div>
+
+<div id="base64Display" class="base64-section">
+  <h3>Donn&#xe9;es Base64 du petit QR Code:</h3>
+  <p id="base64Content">-</p>
+</div>
+
+<div id="miningChart" class="chart-container">
+  <canvas id="statsChart"></canvas>
+</div>
+
+<div id="stats">
+  <h3>Statistiques</h3>
+  <p>Temps &#xe9;coul&#xe9;: <span id="timer">00:00:00</span></p>
+  <p>Mwollowm tri&#xe9;s : <span id="minedAmount">0.0000000000000000000</span></p>
+  <p>Taux de minage: <span id="miningRate">0.00000694444444444444 MWM/S.T</span></p>
+  <p>Chemin parcouru: <span id="cumulRate">0</span></p>
+  <p>Hash actuel: <span id="currentHash">-</span></p>
+</div>
+
+<div class="traffic-light">
+  <div class="light red"></div>
+  <div class="light yellow"></div>
+  <div class="light green"></div>
+</div>
+<div class="message">Pr&#xe9;levez</div>
+
+<div id="miningConsole" class="mining-console">
+  <pre id="miningOutput"></pre>
+</div>
+
+<button id="toggleConsoleBtn" onclick="toggleConsoleVisibility()">Console de Minage</button>
+
+<script>let mining = false;
+let isPaused = false;
+let startTime;
+let timerInterval;
+let minedAmount = 0;
+let nonce = 0;
+let isDarkMode = false;
+const MINING_RATE = 0.0000069444444444;
+const alphabet = {
+  1: 'A',
+  2: 'B',
+  3: 'C',
+  4: 'D',
+  5: 'E',
+  6: 'F',
+  7: 'G',
+  8: 'H',
+  9: 'I',
+  10: 'J',
+  11: 'K',
+  12: 'L',
+  13: 'M',
+  14: 'N',
+  15: 'O',
+  16: 'P',
+  17: 'Q',
+  18: 'R',
+  19: 'S',
+  20: 'T',
+  21: 'U',
+  22: 'V',
+  23: 'W',
+  24: 'X',
+  25: 'Y',
+  26: 'Z'
+};
+let currentRandomNumber = 0;
+const MAX_RANDOM_NUMBER = 20736000000000;
+let miningChart;
+let chartData = {
+  labels: [],
+  tokens: [],
+  difficulty: []
+};
+let trafficTimeout;
+let consoleVisible = false;
+let isDragging = false;
+let currentX;
+let currentY;
+let initialX;
+let initialY;
+let xOffset = 0;
+let yOffset = 0;
+function convertToLetters() {
+  let inputValue = document.getElementById('inputValue').value;
+  let difficulty = parseInt(document.getElementById('difficulty').value) || 1;
+  let MAX_RANDOM_NUMBER = 1000000;
+  let alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+  let resultList = [];
+  if (inputValue && /^\d+$/.test(inputValue)) {
+    let num = parseInt(inputValue);
+    let firstResult = "";
+    let tempNum = num;
+    while (tempNum > 0) {
+      let digit = tempNum % 26;
+      if (digit === 0) digit = 26;
+      let letter = alphabet[digit - 1];
+      firstResult = letter + firstResult;
+      tempNum = Math.floor((tempNum - digit) / 26);
+    }
+    resultList.push({
+      code: firstResult,
+      serialNumber: num
+    });
+    for (let i = 1; i < difficulty; i++) {
+      let randomNum = Math.floor(Math.random() * MAX_RANDOM_NUMBER);
+      let result = "";
+      tempNum = randomNum;
+      while (tempNum > 0) {
+        let digit = tempNum % 26;
+        if (digit === 0) digit = 26;
+        let letter = alphabet[digit - 1];
+        result = letter + result;
+        tempNum = Math.floor((tempNum - digit) / 26);
+      }
+      resultList.push({
+        code: result,
+        serialNumber: randomNum
+      });
+    }
+    document.getElementById('result').innerText = resultList[0].code;
+    const listContainer = document.getElementById('na1c142List');
+    listContainer.innerHTML = '';
+    resultList.forEach((item, index) => {
+      const div = document.createElement('div');
+      div.className = 'na1c142-item';
+      div.textContent = `${index + 1}/ ${item.code} (Serial Number: ${item.serialNumber})`;
+      listContainer.appendChild(div);
+    });
+    generateNA1C142QRCode(resultList.map(item => item.code).join('\n'));
+  } else {
+    document.getElementById('result').innerText = "En attente de génération...";
+    document.getElementById('na1c142List').innerHTML = '';
+  }
+}
+function generateNA1C142QRCode(data) {}
+function generateNA1C142QRCode(text) {
+  let currentDateTime = new Date();
+  let date = currentDateTime.toLocaleDateString();
+  let time = currentDateTime.toLocaleTimeString();
+  let fullText = text + "\nDate: " + date + "\nHeure: " + time;
+  document.getElementById('na1c142qr').innerHTML = "";
+  new QRCode(document.getElementById("na1c142qr"), {
+    text: fullText,
+    width: 128,
+    height: 128,
+    colorDark: "#000000",
+    colorLight: "#FFFFFF",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+}
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = document.getElementById('uploadedImage');
+      img.src = e.target.result;
+      img.style.filter = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+}
+function handleReverseImageUpload(event) {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = document.getElementById('uploadedImageReverse');
+      img.src = e.target.result;
+      img.style.filter = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+}
+function toggleDarkMode() {
+  isDarkMode = !isDarkMode;
+  document.body.classList.toggle('dark-mode');
+  document.getElementById('darkModeBtn').textContent = isDarkMode ? 'Mode Jour' : 'Mode Nuit';
+}
+function generateHash(nonce, difficulty) {
+  const data = `MwollowMining${nonce}${Date.now()}`;
+  const hash = CryptoJS.SHA256(data).toString();
+  const prefix = '0'.repeat(difficulty);
+  return {
+    hash,
+    isValid: hash.startsWith(prefix)
+  };
+}
+function calculateMwollowm() {
+  if (currentRandomNumber > 0) {
+    const result = currentRandomNumber * MINING_RATE;
+    minedAmount = result;
+    document.getElementById('minedAmount').textContent = result.toFixed(19);
+    document.getElementById('banknoteAmount').textContent = result.toFixed(19);
+    document.getElementById('cumulRate').textContent = currentRandomNumber;
+    updateQRCode(result);
+    document.getElementById('inputValue').value = currentRandomNumber;
+    convertToLetters();
+  }
+}
+function generateBase64Amount(amount) {
+  const uniqueId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  const data = `${amount.toFixed(16)}_${uniqueId}`;
+  const base64String = btoa(data);
+  document.getElementById('base64Content').textContent = base64String;
+  return base64String;
+}
+function updateQRCode(amount) {
+  const difficulty = parseInt(document.getElementById('difficulty').value) || 1;
+  let hashResult;
+  do {
+    nonce++;
+    hashResult = generateHash(nonce, difficulty);
+  } while (!hashResult.isValid);
+  document.getElementById('currentHash').textContent = hashResult.hash;
+  const now = new Date();
+  const formattedDate = now.toISOString();
+  const adjustedRate = MINING_RATE * difficulty;
+  const qrData = {
+    balance: `${currentRandomNumber} serial number ${formattedDate}`,
+    cumul_mwol_lowm: [hashResult.hash],
+    cumulative_balance: adjustedRate,
+    date_time: formattedDate
+  };
+  document.getElementById('qrcode').innerHTML = '';
+  document.getElementById('base64qrcode').innerHTML = '';
+  new QRCode(document.getElementById('qrcode'), {
+    text: JSON.stringify(qrData),
+    width: 256,
+    height: 256,
+    correctLevel: QRCode.CorrectLevel.L
+  });
+  new QRCode(document.getElementById('base64qrcode'), {
+    text: generateBase64Amount(adjustedRate),
+    width: 128,
+    height: 128,
+    correctLevel: QRCode.CorrectLevel.L
+  });
+}
+function updateTimer() {
+  if (!startTime || isPaused) return;
+  const now = new Date().getTime();
+  const diff = now - startTime;
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor(diff % (1000 * 60 * 60) / (1000 * 60));
+  const seconds = Math.floor(diff % (1000 * 60) / 1000);
+  document.getElementById('timer').textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+function startMining() {
+  if (mining) return;
+  logMiningProcess('=== STARTING NEW MINING SESSION ===');
+  logMiningProcess(`Initialization with difficulty: ${document.getElementById('difficulty').value}`);
+  mining = true;
+  generateReverseSideQR();
+  isPaused = false;
+  currentRandomNumber = 0;
+  startTime = new Date().getTime();
+  initChart();
+  chartData = {
+    labels: [],
+    tokens: [],
+    difficulty: []
+  };
+  const miningStatus = document.getElementById('miningStatus');
+  if (miningStatus) {
+    miningStatus.textContent = 'En cours ';
+    const animation = miningStatus.querySelector('.mining-animation') || (() => {
+      const span = document.createElement('span');
+      span.className = 'mining-animation';
+      miningStatus.appendChild(span);
+      return span;
+    })();
+    animation.style.display = 'inline-block';
+  }
+  if (!consoleVisible) {
+    toggleConsoleVisibility();
+  }
+  timerInterval = setInterval(updateTimer, 1000);
+  mine();
+}
+function stopMining() {
+  logMiningProcess('=== STOPPING MINING SESSION ===');
+  logMiningProcess(`Final nonce value: ${nonce}`);
+  logMiningProcess(`Total tokens mined: ${currentRandomNumber}`);
+  mining = false;
+  isPaused = false;
+  currentRandomNumber = 0;
+  clearInterval(timerInterval);
+  if (miningChart) {
+    chartData = {
+      labels: [],
+      tokens: [],
+      difficulty: []
+    };
+    miningChart.data.labels = [];
+    miningChart.data.datasets[0].data = [];
+    miningChart.data.datasets[1].data = [];
+    miningChart.update();
+  }
+  const miningStatus = document.getElementById('miningStatus');
+  if (miningStatus) {
+    miningStatus.textContent = 'Inactive ';
+    const animation = miningStatus.querySelector('.mining-animation');
+    if (animation) {
+      animation.style.display = 'none';
+    }
+  }
+  const pauseBtn = document.getElementById('pauseBtn');
+  if (pauseBtn) pauseBtn.textContent = 'Pause';
+  const manualInput = document.getElementById('manualInput');
+  if (manualInput) manualInput.value = '';
+  const inputValue = document.getElementById('inputValue');
+  if (inputValue) inputValue.value = '';
+  const result = document.getElementById('result');
+  if (result) result.innerText = '';
+  const miningRate = document.getElementById('miningRate');
+  if (miningRate) miningRate.textContent = '0.00000694444444444444 MWM/S.T';
+  const cumulRate = document.getElementById('cumulRate');
+  if (cumulRate) cumulRate.textContent = '0';
+  const reverseMwmDisplay = document.querySelector('.reverse-side .mwollowm-display span');
+  if (reverseMwmDisplay) reverseMwmDisplay.textContent = '0.0000069444444444';
+  updateTrafficLight(false);
+  clearTimeout(trafficTimeout);
+  if (consoleVisible) {
+    xOffset = 0;
+    yOffset = 0;
+    const console = document.getElementById('miningConsole');
+    console.style.transform = 'translate(-50%, -50%)';
+    toggleConsoleVisibility();
+  }
+}
+function togglePause() {
+  isPaused = !isPaused;
+  const pauseBtn = document.getElementById('pauseBtn');
+  const miningStatus = document.getElementById('miningStatus');
+  const animation = miningStatus ? miningStatus.querySelector('.mining-animation') : null;
+  if (isPaused) {
+    if (pauseBtn) pauseBtn.textContent = 'Reprendre';
+    if (miningStatus) miningStatus.textContent = 'En pause ';
+    if (animation) animation.style.display = 'none';
+    clearInterval(timerInterval);
+  } else {
+    if (pauseBtn) pauseBtn.textContent = 'Pause';
+    if (miningStatus) miningStatus.textContent = 'En cours ';
+    if (animation) animation.style.display = 'inline-block';
+    timerInterval = setInterval(updateTimer, 1000);
+    if (mining) {
+      mine();
+    }
+  }
+}
+function mine() {
+  if (!mining || isPaused) return;
+  const difficulty = parseInt(document.getElementById('difficulty').value) || 1;
+  logMiningProcess(`Starting mining iteration with nonce: ${nonce}`);
+  logMiningProcess(`Current difficulty target: ${difficulty} leading zeros`);
+  logMiningProcess(`Random seed: ${Date.now()}`);
+  const data = `MwollowMining${nonce}${Date.now()}`;
+  logMiningProcess(`Input data for hashing: ${data}`);
+  const hash = CryptoJS.SHA256(data).toString();
+  logMiningProcess(`Generated SHA256 hash: ${hash}`);
+  logMiningProcess(`Memory usage: ${performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) : 'N/A'} MB`);
+  const prefix = '0'.repeat(difficulty);
+  const isValid = hash.startsWith(prefix);
+  logMiningProcess(`Checking hash against difficulty target ${prefix}`);
+  logMiningProcess(`Hash validation result: ${isValid ? 'VALID' : 'INVALID'}`);
+  if (isValid) {
+    const hashNum = parseInt(hash.substring(0, 12), 16);
+    const calculatedRandomNumber = Math.floor(hashNum / 0xffffffffffff * MAX_RANDOM_NUMBER);
+    logMiningProcess(`Valid hash found! Extracting random number...`);
+    logMiningProcess(`Hash segment used: ${hash.substring(0, 12)}`);
+    logMiningProcess(`Converted to decimal: ${hashNum}`);
+    logMiningProcess(`Scaled to range: ${calculatedRandomNumber}`);
+    currentRandomNumber = calculatedRandomNumber;
+    document.getElementById('manualInput').value = currentRandomNumber;
+    logMiningProcess(`Token generation successful!`);
+    logMiningProcess(`Serial number: ${currentRandomNumber}`);
+    logMiningProcess(`Token value: ${(MINING_RATE * difficulty).toFixed(16)} MWM`);
+    calculateMwollowm();
+    const multipliedRate = (MINING_RATE * difficulty).toFixed(16);
+    document.getElementById('miningRate').textContent = `${multipliedRate} MWM/S.T`;
+    document.getElementById('cumulRate').textContent = (currentRandomNumber * multipliedRate).toFixed(19);
+    const reverseMwmDisplay = document.querySelector('.reverse-side .mwollowm-display span');
+    reverseMwmDisplay.textContent = multipliedRate;
+    updateChart();
+    generateReverseSideQR();
+    updateTrafficLight(true);
+    if (document.getElementById('autoPDF').checked) {
+      generatePDF();
+    }
+    if (document.getElementById('autoScreenshots').checked) {
+      captureScreenshots();
+    }
+  }
+  nonce++;
+  setTimeout(mine, 1000);
+}
+function initChart() {
+  const ctx = document.getElementById('statsChart').getContext('2d');
+  miningChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Tokens Validés',
+        data: [],
+        borderColor: '#4285f4',
+        tension: 0.4
+      }, {
+        label: 'Difficulté',
+        data: [],
+        borderColor: '#34a853',
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      },
+      animation: {
+        duration: 0
+      }
+    }
+  });
+}
+function updateChart() {
+  const now = new Date();
+  const timeLabel = now.toLocaleTimeString();
+  const difficulty = parseInt(document.getElementById('difficulty').value);
+  chartData.labels.push(timeLabel);
+  chartData.tokens.push(currentRandomNumber);
+  chartData.difficulty.push(difficulty);
+  if (chartData.labels.length > 20) {
+    chartData.labels.shift();
+    chartData.tokens.shift();
+    chartData.difficulty.shift();
+  }
+  miningChart.data.labels = chartData.labels;
+  miningChart.data.datasets[0].data = chartData.tokens;
+  miningChart.data.datasets[1].data = chartData.difficulty;
+  miningChart.update();
+}
+function generateReverseSideQR() {
+  const timestamp = Date.now();
+  const data = `ReverseSide${timestamp}`;
+  const hash = CryptoJS.SHA256(data).toString();
+  const difficulty = parseInt(document.getElementById('difficulty').value) || 1;
+  const multipliedValue = (MINING_RATE * difficulty).toFixed(16);
+  const qrData = {
+    v: multipliedValue,
+    h: hash.substring(0, 32),
+    t: timestamp
+  };
+  document.getElementById('reverseQrcode').innerHTML = '';
+  try {
+    new QRCode(document.getElementById('reverseQrcode'), {
+      text: btoa(JSON.stringify(qrData)),
+      width: 148,
+      height: 148,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    document.getElementById('reverseQrData').textContent = `Value: ${multipliedValue} MWM | Hash: ${qrData.h} | Time: ${new Date(qrData.t).toLocaleString()}`;
+  } catch (e) {
+    console.error('QR Code generation failed:', e);
+    const fallbackData = {
+      v: multipliedValue,
+      h: hash.substring(0, 16)
+    };
+    new QRCode(document.getElementById('reverseQrcode'), {
+      text: btoa(JSON.stringify(fallbackData)),
+      width: 148,
+      height: 148,
+      correctLevel: QRCode.CorrectLevel.L
+    });
+    document.getElementById('reverseQrData').textContent = `Value: ${multipliedValue} MWM | Hash: ${fallbackData.h}`;
+  }
+}
+function showQRError(msg) {
+  const errorDiv = document.getElementById('qrErrorMsg');
+  errorDiv.textContent = msg;
+  errorDiv.style.display = 'block';
+  setTimeout(() => {
+    errorDiv.style.display = 'none';
+  }, 3000);
+}
+async function generatePDF() {
+  const {
+    jsPDF
+  } = window.jspdf;
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const serialNumber = document.getElementById('manualInput').value || '0';
+  const na1c142Text = document.getElementById('result').innerText || 'N/A';
+  const na1c142List = Array.from(document.querySelectorAll('.na1c142-item')).map(item => item.textContent).join('\n');
+  doc.setFontSize(12);
+  doc.text(`Serial Number: ${serialNumber}`, 10, 10);
+  doc.text(`NA1C142 Primary Code: ${na1c142Text}`, 10, 20);
+  doc.text('NA1C142 Generated Codes:', 10, 30);
+  const splitText = doc.splitTextToSize(na1c142List, 180);
+  doc.text(splitText, 10, 40);
+  let yOffset = 50 + splitText.length * 5;
+  const sections = [document.getElementById('stats'), document.getElementById('miningChart'), document.querySelector('.banknote-container'), document.querySelector('.banknote-container.reverse-side')];
+  for (let section of sections) {
+    const canvas = await html2canvas(section, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true
+    });
+    const imgData = canvas.toDataURL('image/png');
+    const imgWidth = 190;
+    const imgHeight = canvas.height * imgWidth / canvas.width;
+    if (yOffset + imgHeight > 280) {
+      doc.addPage();
+      yOffset = 10;
+    }
+    doc.addImage(imgData, 'PNG', 10, yOffset, imgWidth, imgHeight);
+    yOffset += imgHeight + 10;
+  }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  doc.save(`MwollowMining-Report-${timestamp}.pdf`);
+}
+function updateTrafficLight(success) {
+  const lights = document.querySelectorAll('.light');
+  const message = document.querySelector('.message');
+  lights.forEach(light => {
+    light.classList.remove('red', 'yellow', 'green');
+    light.style.background = '#666';
+  });
+  if (success) {
+    lights[2].style.background = '#00ff00';
+    message.style.display = 'block';
+    clearTimeout(trafficTimeout);
+    trafficTimeout = setTimeout(() => {
+      lights[2].style.background = '#666';
+      message.style.display = 'none';
+      lights[0].style.background = '#ff0000';
+    }, 4000);
+  } else {
+    lights[0].style.background = '#ff0000';
+    message.style.display = 'none';
+  }
+}
+function initDragConsole() {
+  const console = document.getElementById('miningConsole');
+  console.addEventListener('mousedown', dragStart);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', dragEnd);
+}
+function removeDragConsole() {
+  const console = document.getElementById('miningConsole');
+  console.removeEventListener('mousedown', dragStart);
+  document.removeEventListener('mousemove', drag);
+  document.removeEventListener('mouseup', dragEnd);
+}
+function dragStart(e) {
+  const console = document.getElementById('miningConsole');
+  if (e.offsetX >= console.clientWidth || e.offsetY >= console.clientHeight) {
+    return;
+  }
+  initialX = e.clientX - xOffset;
+  initialY = e.clientY - yOffset;
+  if (e.target === console) {
+    isDragging = true;
+    console.classList.add('dragging');
+  }
+}
+function dragEnd(e) {
+  const console = document.getElementById('miningConsole');
+  initialX = currentX;
+  initialY = currentY;
+  isDragging = false;
+  console.classList.remove('dragging');
+}
+function drag(e) {
+  if (isDragging) {
+    e.preventDefault();
+    const console = document.getElementById('miningConsole');
+    currentX = e.clientX - initialX;
+    currentY = e.clientY - initialY;
+    xOffset = currentX;
+    yOffset = currentY;
+    setTranslate(currentX, currentY, console);
+  }
+}
+function setTranslate(xPos, yPos, el) {
+  el.style.transform = `translate(${xPos}px, ${yPos}px)`;
+}
+document.getElementById('difficulty').addEventListener('change', function () {
+  if (mining && !isPaused) {
+    const difficulty = parseInt(this.value) || 1;
+    const multipliedRate = (MINING_RATE * difficulty).toFixed(16);
+    document.getElementById('miningRate').textContent = `${multipliedRate} MWM/S.T`;
+    const reverseMwmDisplay = document.querySelector('.reverse-side .mwollowm-display span');
+    reverseMwmDisplay.textContent = multipliedRate;
+    generateReverseSideQR();
+    updateQRCode();
+    if (document.getElementById('inputValue').value) {
+      convertToLetters();
+    }
+  }
+});
+async function captureScreenshots() {
+  const frontBanknote = document.querySelector('.banknote-container:not(.reverse-side)');
+  const frontCanvas = await html2canvas(frontBanknote, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true
+  });
+  saveScreenshot(frontCanvas, 'front');
+  const reverseBanknote = document.querySelector('.banknote-container.reverse-side');
+  const reverseCanvas = await html2canvas(reverseBanknote, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true
+  });
+  saveScreenshot(reverseCanvas, 'reverse');
+}
+function saveScreenshot(canvas, type) {
+  const link = document.createElement('a');
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  link.download = `MwollowMining-${type}-${timestamp}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+function manualCapture() {
+  captureScreenshots();
+}
+function logMiningProcess(message) {
+  const output = document.getElementById('miningOutput');
+  const timestamp = new Date().toISOString();
+  const newLine = document.createElement('div');
+  newLine.innerHTML = `[${timestamp}] ${message}\n`;
+  newLine.style.animation = 'scrollText 1s linear';
+  output.appendChild(newLine);
+  const maxLines = 100;
+  while (output.childNodes.length > maxLines) {
+    output.removeChild(output.firstChild);
+  }
+  requestAnimationFrame(() => {
+    output.scrollTop = output.scrollHeight;
+  });
+}
+function toggleConsoleVisibility() {
+  const console = document.getElementById('miningConsole');
+  const isCurrentlyVisible = console.classList.contains('show-console');
+  if (isCurrentlyVisible) {
+    console.classList.remove('show-console');
+    consoleVisible = false;
+    removeDragConsole();
+    document.getElementById('toggleConsoleBtn').textContent = 'Console de Minage';
+  } else {
+    console.classList.add('show-console');
+    consoleVisible = true;
+    initDragConsole();
+    document.getElementById('toggleConsoleBtn').textContent = 'Cacher Console';
+  }
+}</script>
+
+<!-- GUN -->
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script>
+  const gun = Gun(["https://gun-encaissement.onrender.com/gun"]);
+  const blocsDB = gun.get("miner003_mined");
+
+  function enregistrerBloc(wallet, serial, value, cumulative) {
+    const bloc = {
+      wallet: wallet || "anonyme",
+      serial: serial,
+      value: value,
+      cumulative_balance: cumulative,
+      date: Date.now()
+    };
+    blocsDB.set(bloc);
+  }
+
+  // Remplacer calculateMwollowm
+  const original_calculateMwollowm = calculateMwollowm;
+  calculateMwollowm = function() {
+    original_calculateMwollowm();
+    const wallet = document.getElementById("walletInput")?.value || "anonyme";
+    const serial = document.getElementById("manualInput")?.value || "0";
+    const value = parseFloat(document.getElementById("banknoteAmount")?.textContent || "0");
+    const miningRateText = document.getElementById("miningRate")?.textContent || "0";
+    const cumulative = parseFloat(miningRateText.split(" ")[0]) || value;
+
+    enregistrerBloc(wallet, serial, value, cumulative);
+  };
+</script>
+
+
+  <div style="margin-top: 20px; padding: 10px; background: #222; border: 1px solid #555;">
+    <h3>Options de minage :</h3>
+    <label><input type="checkbox" id="screenshotAuto"> Captures d'écran automatiques</label><br>
+    <label><input type="checkbox" id="pdfAuto"> Génération PDF automatique</label>
+  </div>
+
+  <script>
+  const gun = Gun(["https://gun-encaissement.onrender.com/gun"]);
+  const blocsDB = gun.get("miner003_mined");
+
+  function enregistrerBloc(wallet, serial, value, cumulative) {
+    const pdfAuto = document.getElementById("pdfAuto").checked ? "✔️" : "❌";
+    const captureAuto = document.getElementById("captureAuto").checked ? "✔️" : "❌";
+    blocData.pdfAuto = document.getElementById("pdfAuto").checked ? "✔️" : "❌";
+    blocData.captureAuto = document.getElementById("captureAuto").checked ? "✔️" : "❌";
+
+
+    const bloc = {
+      wallet: wallet || "anonyme",
+      serial: serial,
+      value: value,
+      cumulative_balance: cumulative,
+      pdfAuto: pdfAuto,
+      captureAuto: captureAuto,
+      date: Date.now()
+    };
+
+    blocsDB.set(bloc);
+  }
+</script>
+
+</body>
+</html>
