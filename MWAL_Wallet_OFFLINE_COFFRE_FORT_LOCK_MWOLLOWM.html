@@ -357,7 +357,16 @@ const INTERVAL_MS=4000;
 // MWAL = centime ; 1 MWOLLOWM = 100 MWAL
 const MWAL_PER_MWOLLOWM = 100;
 function toMWOLLOWM(mwal){ return (Number(mwal)||0)/MWAL_PER_MWOLLOWM; }
-function fmtMWOLLOWM(mwal){ return toMWOLLOWM(mwal).toFixed(8); }
+function fmtMWOLLOWM(mwal){
+  const n = toMWOLLOWM(mwal);
+
+  // conversion sûre en décimal lisible
+  return n.toLocaleString("en-US", {
+    useGrouping: false,
+    maximumFractionDigits: 18
+  });
+}
+
 function fromMWOLLOWM(x){ return (Number(x)||0)*MWAL_PER_MWOLLOWM; }
 
 const STORE_KEY="mwal_wallet_offline_v3";
