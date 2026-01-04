@@ -358,15 +358,11 @@ const INTERVAL_MS=4000;
 const MWAL_PER_MWOLLOWM = 100;
 function toMWOLLOWM(mwal){ return (Number(mwal)||0)/MWAL_PER_MWOLLOWM; }
 function fmtMWOLLOWM(mwal){
-  const n = toMWOLLOWM(mwal);
-
-  // conversion sûre en décimal lisible
-  return n.toLocaleString("en-US", {
+  return Number(mwal).toLocaleString("en-US", {
     useGrouping: false,
     maximumFractionDigits: 18
   });
 }
-
 function fromMWOLLOWM(x){ return (Number(x)||0)*MWAL_PER_MWOLLOWM; }
 
 const STORE_KEY="mwal_wallet_offline_v3";
