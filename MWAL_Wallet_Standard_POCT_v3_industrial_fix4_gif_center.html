@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>MWAL – Wallet Standard (Send + Receive + PoCT)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600&family=JetBrains+Mono&display=swap');
+    :root{
+      --bg1:#000;
+      --bg2:#001a00;
+      --txt:#00ff66;
+      --btn:#00ff66;
+      --btn-h:#33ff99;
+      --card:#001400;
+      --border:#00ff66;
+      --accent:#ffd700;
+      --warn:#ffcc00;
+      --bad:#ff4444;
+      --cyan:#00ffff;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0; padding:0;
+      background:linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--txt);
+      font-family:'JetBrains Mono',monospace;
+      text-align:center;
+      min-height:100vh;
+    }
+    h1{
+      font-family:'Orbitron',sans-serif;
+      margin:20px 10px 5px;
+      text-shadow:0 0 15px var(--btn);
+      font-size:2rem;
+    }
+    h2{
+      font-family:'Orbitron',sans-serif;
+      font-size:1.05rem;
+      margin:8px 0;
+    }
+    p{margin:4px 0;}
+    .wrap{max-width:1200px;margin:0 auto 30px;padding:8px;}
+    .row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:10px;}
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px;
+      box-shadow:0 0 15px rgba(0,255,100,0.2);
+      flex:1 1 360px;
+      min-width:320px;
+      text-align:left;
+    }
+    .card h2, .card p{ text-align:center; }
+    label{display:block;text-align:left;font-size:0.8rem;margin:4px 0 2px;}
+    input,textarea{
+      width:100%;
+      background:#000;
+      border:1px solid var(--border);
+      border-radius:6px;
+      color:var(--txt);
+      padding:6px;
+      font-family:'JetBrains Mono',monospace;
+      font-size:0.85rem;
+    }
+    textarea{min-height:66px;resize:vertical;}
+    .mainbtn,.sm-btn{
+      background:var(--btn);
+      color:#000;
+      border:none;
+      border-radius:8px;
+      padding:7px 12px;
+      cursor:pointer;
+      font-weight:bold;
+      margin:6px 4px 2px 0;
+      font-size:0.82rem;
+    }
+    .sm-btn{padding:4px 10px;font-size:0.78rem;}
+    .mainbtn:hover,.sm-btn:hover{background:var(--btn-h);}
+    .danger-btn{background:var(--bad);color:#fff;}
+    .danger-btn:hover{background:#ff6666;}
+    .muted{opacity:0.85;font-size:0.78rem;}
+    .alert{
+      background:rgba(0,255,102,0.10);
+      border:2px solid var(--border);
+      border-radius:10px;
+      padding:10px;
+      margin:10px auto;
+      max-width:1100px;
+      font-size:0.9rem;
+      text-align:center;
+    }
+    .alert.warn{
+      border-color:var(--warn);
+      color:var(--warn);
+      background:rgba(255,204,0,0.07);
+    }
+    .alert.cyan{
+      border-color:rgba(0,255,255,0.65);
+      color:var(--cyan);
+      background:rgba(0,255,255,0.06);
+    }
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
+      gap:8px;
+      margin:8px 0;
+    }
+    .stat-box{
+      background:rgba(0,255,102,0.05);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px;
+      text-align:center;
+    }
+    .stat-label{font-size:0.7rem;opacity:0.75;margin-bottom:3px;}
+    .stat-value{
+      font-size:1.05rem;
+      font-weight:bold;
+      font-family:'Orbitron',sans-serif;
+      word-break:break-word;
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:0.75rem;
+      margin-top:6px;
+    }
+    th,td{border:1px solid rgba(0,255,102,0.3);padding:4px 5px;text-align:left;}
+    th{background:rgba(0,255,102,0.1);}
+    .qr-container{
+      margin-top:6px;
+      display:inline-block;
+      background:#fff;
+      padding:3px;
+      border-radius:6px;
+    }
+    .mwollowm-box{
+      margin-top:8px;
+      padding:6px;
+      border:1px dashed rgba(255,215,0,0.55);
+      border-radius:10px;
+      background:rgba(255,215,0,0.05);
+      text-align:center;
+    }
+    .mwollowm-value{
+      font-size:1.05rem;
+      font-weight:bold;
+      font-family:'Orbitron',sans-serif;
+      line-height:1.2;
+    }
+    .mwollowm-reached{
+      color: var(--accent);
+      text-shadow: 0 0 10px var(--accent);
+    }
+    .mwollowm-sub{font-size:0.75rem;opacity:0.9;margin-top:2px;}
+    .mwollowm-progress-wrap{
+      width:100%;
+      height:10px;
+      border:1px solid rgba(0,255,102,0.35);
+      border-radius:999px;
+      overflow:hidden;
+      margin-top:6px;
+      background:rgba(0,0,0,0.35);
+    }
+    .mwollowm-progress-bar{height:100%;width:0%;background:var(--txt);transition:width 250ms ease;}
+    .mwollowm-progress-text{margin-top:4px;font-size:0.72rem;opacity:0.95;}
+    footer{margin:10px 0 18px;font-size:0.75rem;opacity:0.65;text-align:center;}
+    .codebox{background:#000;border:1px dashed rgba(0,255,102,0.6);border-radius:10px;padding:8px;}
+    .center{text-align:center;}
+    .pill{
+      display:inline-block;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(0,255,102,0.35);
+      font-size:0.72rem;
+      opacity:0.95;
+      margin:2px 3px;
+    }
+  </style>
+</head>
+<body>
+  <h1>👛 MWAL WALLET STANDARD</h1>
+
+  <div class="alert">
+    Send + Receive (codes signés) + <strong>Encaissement PoCT via QR</strong> (témoin de blocs).
+    <br/>Le destinataire crédite <em>son</em> solde après validation.
+  </div>
+
+  <div class="wrap">
+    <div class="row">
+      <div class="card">
+        <h2>🆔 Mon wallet</h2>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">Solde</div>
+            <div class="stat-value" id="balanceMWAL">0.00000000</div>
+            <div class="stat-label">MWAL</div>
+
+            <div class="mwollowm-box" id="mwollowmBox">
+              <div class="stat-label">Équivalent officiel</div>
+              <div class="mwollowm-value" id="mwollowmValue">≈ 0.00000000 MWOLLOWM</div>
+              <div class="mwollowm-sub" id="mwollowmSub">--</div>
+              <div class="mwollowm-progress-wrap" title="Progression vers le prochain MWOLLOWM">
+                <div class="mwollowm-progress-bar" id="mwollowmProgressBar"></div>
+              </div>
+              <div class="mwollowm-progress-text muted" id="mwollowmProgressText"></div>
+            </div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Transactions (local)</div>
+            <div class="stat-value" id="txCount">0</div>
+          </div>
+        </div>
+
+        <label>ID wallet</label>
+        <input id="walletId" readonly />
+        <div class="center"><div id="qrWallet" class="qr-container"></div></div>
+
+        <label>Nom / Alias</label>
+        <input id="walletName" placeholder="Ex : Alice, Boutique Laurent" />
+        <button class="sm-btn" id="btnSaveName">Enregistrer le nom</button>
+
+        <hr style="border-color:rgba(0,255,102,0.3);margin:10px 0;" />
+
+        <h2>🧾 Export / Reset</h2>
+        <button class="sm-btn" id="btnExportJson">Exporter JSON</button>
+        <button class="sm-btn danger-btn" id="btnReset">Réinitialiser wallet</button>
+        <textarea id="exportArea" readonly placeholder="Export JSON ici..."></textarea>
+
+        <div class="alert warn" id="activationBox" style="display:none;margin-top:10px;">
+          ⏳ Protocole non activé. Les transactions seront refusées avant la date GENESIS.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📥 Recevoir (code MWAL)</h2>
+        <p class="muted center">
+          Collez la <strong>clé MWAL</strong> et le <strong>code chiffré</strong>. Vérifie TO, TX, SIG.
+        </p>
+
+        <label for="recvKey">Clé MWAL reçue</label>
+        <input id="recvKey" placeholder="MWAL-2026-XXXXXX" />
+
+        <label for="recvCode">Code chiffré reçu</label>
+        <textarea id="recvCode" placeholder="Coller ici le code chiffré."></textarea>
+
+        <button class="mainbtn" id="btnReceive">Encaisser</button>
+        <button class="sm-btn" id="btnClearRecv">Effacer</button>
+
+        <label for="decodedPlain">Message décodé</label>
+        <textarea id="decodedPlain" readonly></textarea>
+
+<!-- 🎞️ Zone animation visuelle (centre) -->
+<div id="visual-zone" style="text-align:center; margin:12px 0;">
+  <img id="statusGif"
+       src="animation_idle.gif"
+       alt="MWAL status"
+       style="max-width:100%; max-height:220px; border-radius:10px; box-shadow:0 0 15px rgba(0,255,102,0.35); opacity:0.95; transition:opacity 0.25s ease;">
+</div>
+
+
+        <p class="muted" id="recvStatus"></p>
+      </div>
+
+      <div class="card">
+        <h2>🧬 Encaisser PoCT (QR du témoin)</h2>
+        <div class="alert cyan">
+          Colle le texte du <strong>QR</strong> généré par <code>Témoin-Mwal-Rewards2_v2.html</code>.
+          <br/>Le wallet <strong>recalcule le hash</strong> et valide le bloc avant de créditer.
+        </div>
+
+        <label for="poctText">Texte QR PoCT</label>
+        <textarea id="poctText" placeholder="MWAL|POCT|MODE=official|BLOCK=...|TS=...|HASH=...|SALT=...|TO=MWAL-WAL-XXXXXX"></textarea>
+
+        <div class="row" style="margin-top:6px;">
+          <button class="mainbtn" id="btnPoctDecode">Décoder / Vérifier</button>
+          <button class="sm-btn" id="btnPoctClaim">Encaisser la récompense</button>
+          <button class="sm-btn danger-btn" id="btnPoctClear">Effacer</button>
+        </div>
+
+        <div class="alert" style="margin-top:10px;">
+          🏭 <strong>Mode industriel</strong><br>
+          ⏱️ Délai décodage (ms) :
+          <input id="autoDelayDecode" type="number" value="3000" style="width:100px;">
+          ⏱️ Délai encaissement (ms) :
+          <input id="autoDelayClaim" type="number" value="3000" style="width:100px;">
+          <label style="margin-left:12px;">
+            <input type="checkbox" id="autoBeep" checked> 🔊 Bip à l'encaissement
+          </label>
+        
+</div>
+
+        <div class="alert cyan" style="margin-top:8px;">
+          ⚡ <strong>Mode rapide</strong> :
+          <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="poctAuto" style="width:auto;transform:scale(1.1);margin:0;">
+            <span>Auto (décode après 3s → encaisse après 3s → efface)</span>
+          </label>
+          <div class="muted" style="margin-top:6px;text-align:center;">
+            Conseil : colle/scan le texte du QR dans le champ, puis ne touche plus — le wallet fait le reste.
+          </div>
+        </div>
+
+
+        <div class="codebox" style="margin-top:8px;">
+          <div class="muted center">Détails PoCT</div>
+          <div class="muted">
+            <span class="pill" id="poctMode">MODE: —</span>
+            <span class="pill" id="poctBlock">BLOC: —</span>
+            <span class="pill" id="poctTs">TS: —</span>
+            <span class="pill" id="poctTo">TO: —</span>
+          </div>
+          <label>Hash reçu</label>
+          <textarea id="poctHashIn" readonly></textarea>
+          <label>Hash recalculé</label>
+          <textarea id="poctHashCalc" readonly></textarea>
+          <p class="muted" id="poctStatus">—</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card" style="flex:1 1 100%;">
+        <h2>📤 Envoyer (générer un code)</h2>
+        <p class="muted center">
+          Débite votre solde local et génère un <strong>code signé</strong> à remettre au destinataire.
+        </p>
+
+        <div class="row">
+          <div class="field" style="flex:1 1 320px;">
+            <label for="sendTo">Wallet destinataire (TO)</label>
+            <input id="sendTo" placeholder="MWAL-POS-XXXXXX ou MWAL-WAL-XXXXXX" />
+          </div>
+          <div class="field" style="flex:1 1 220px;">
+            <label for="sendAmount">Montant (MWAL)</label>
+            <input id="sendAmount" type="number" min="0" step="0.00000001" value="0.00000001" />
+          </div>
+          <div class="field" style="flex:1 1 280px;">
+            <label for="sendLabel">Libellé (optionnel)</label>
+            <input id="sendLabel" placeholder="Ex : Paiement, Remboursement, Facture #123" />
+          </div>
+        </div>
+
+        <button class="mainbtn" id="btnSend">Générer l'envoi</button>
+
+        <div id="sendOut" class="codebox" style="display:none;margin-top:8px;">
+          <p class="center"><strong>✅ Envoi généré</strong> — à coller dans le wallet destinataire</p>
+          <label>Clé</label>
+          <input id="outKey" readonly />
+          <label>Code</label>
+          <textarea id="outCode" readonly></textarea>
+        </div>
+
+        <p class="muted" id="sendStatus"></p>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card" style="flex:1 1 100%;">
+        <h2>📚 Historique (local)</h2>
+        <div style="max-height:300px;overflow:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>TX</th>
+                <th>De</th>
+                <th>À</th>
+                <th>Montant (MWAL)</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr><td colspan="7" style="text-align:center;opacity:0.6;">Aucune transaction.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>© MWAL – Wallet Standard + PoCT</footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+const MWAL_PROTOCOL_SECRET = "MWAL_CORE_2025_V1_PROTOCOL";
+
+const MWAL_PER_MWOLLOWM = 144000;
+const MWAL_TO_MWOLLOWM  = 1 / MWAL_PER_MWOLLOWM;
+
+const GENESIS_DATE_ISO = "";
+const GENESIS_DATE_MS  = GENESIS_DATE_ISO ? new Date(GENESIS_DATE_ISO).getTime() : null;
+function isProtocolActive(){
+  if(!GENESIS_DATE_MS) return true;
+  return Date.now() >= GENESIS_DATE_MS;
+}
+
+const POCT = {
+  GENESIS_MS: new Date("2026-01-07T00:00:00+01:00").getTime(),
+  BLOCK_INTERVAL_MS: 4000,
+  BLOCKS_TOTAL: 144000,
+  REWARD_PER_BLOCK: 1 / 144000,
+  ACCEPT_MODES: new Set(["official"]),
+  FROM_ID: "MWAL-POCT-MINTER"
+};
+
+function computeSignature(fromId, amountStr, txId) {
+  const raw = fromId + "|" + amountStr + "|" + txId + "|" + MWAL_PROTOCOL_SECRET;
+  let h = 0;
+  for (let i = 0; i < raw.length; i++) {
+    h = Math.imul(31, h) + raw.charCodeAt(i) | 0;
+  }
+  return Math.abs(h).toString(36).toUpperCase();
+}
+
+const STORAGE_KEYS = {
+  WALLET_ID:    "mwal_std_wallet_id",
+  WALLET_NAME:  "mwal_std_wallet_name",
+  STATE:        "mwal_std_state",
+  PROCESSED:    "mwal_std_processed_txs",
+  HISTORY:      "mwal_std_history",
+  CLAIMED_POCT: "mwal_std_claimed_poct_blocks"
+};
+
+function saveToStorage(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); }
+  catch(e){ console.error("Erreur sauvegarde:", e); }
+}
+function loadFromStorage(key, def=null) {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : def;
+  } catch(e){
+    console.error("Erreur chargement:", e);
+    return def;
+  }
+}
+function round8(x){ return Math.round(x * 1e8) / 1e8; }
+function formatDate(d){ return new Date(d).toLocaleString("fr-FR"); }
+
+function safeQR(div, text, size){
+  div.innerHTML = "";
+  if(!text) return;
+  const s = size || 128;
+  new QRCode(div, { text, width:s, height:s });
+}
+
+function hashSeed(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){
+    h = Math.imul(31,h) + str.charCodeAt(i) | 0;
+  }
+  return Math.abs(h);
+}
+function seededShuffle(arr, seed){
+  arr = arr.slice();
+  let m = arr.length, t, i;
+  while(m){
+    seed = (seed * 9301 + 49297) % 233280;
+    i = Math.floor(seed / 233280 * m--);
+    t = arr[m];
+    arr[m] = arr[i];
+    arr[i] = t;
+  }
+  return arr;
+}
+const pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+function genCode(ch){
+  let s = hashSeed(ch + "_NA1C142");
+  let out = "";
+  for(let i=0;i<6;i++){
+    s = (s * 9301 + 49297) % 233280;
+    out += pool[Math.floor(s / 233280 * pool.length)];
+  }
+  return out.replace(/^([A-Z])/, ch === ch.toLowerCase() ? ch.toLowerCase() : ch.toUpperCase());
+}
+const baseAlphabet = {};
+const allChars =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÀÂÄÃàâäÉÈÊËéèêëÎÏîïÓÖôöÙÛÜùûüÇç0123456789.,!?;:'\"-_()@#%+/\\*=<>\n\t ";
+for(const c of allChars){
+  baseAlphabet[c] = (c === " ") ? " " : genCode(c);
+}
+let alphabet = {...baseAlphabet};
+let inverse  = {};
+function rebuildInverse(){
+  inverse = {};
+  for(const [k,v] of Object.entries(alphabet)){
+    inverse[v] = k;
+  }
+}
+rebuildInverse();
+function applyKeyToAlphabet(key){
+  const seed = hashSeed(key);
+  const keys = Object.keys(baseAlphabet).filter(c => c !== " ");
+  const vals = Object.values(baseAlphabet).filter(c => c !== " ");
+  const shuffled = seededShuffle(vals, seed);
+  alphabet = {};
+  keys.forEach((k,i)=> alphabet[k] = shuffled[i]);
+  alphabet[" "] = " ";
+  rebuildInverse();
+}
+function encodeString(str){
+  let res = "";
+  for(const ch of str){ res += (alphabet[ch] ?? ch); }
+  return res;
+}
+function decodeString(cipher){
+  let res = "";
+  let i = 0;
+  const entries = Object.entries(inverse).sort((a,b)=> b[0].length - a[0].length);
+  while(i < cipher.length){
+    let matched = false;
+    for(const [code, plain] of entries){
+      if(cipher.startsWith(code, i)){
+        res += plain;
+        i += code.length;
+        matched = true;
+        break;
+      }
+    }
+    if(!matched){ res += cipher[i]; i++; }
+  }
+  return res;
+}
+
+async function sha256(text){
+  const data = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+async function computePoctHash(blockIndex, salt){
+  const blockTs = POCT.GENESIS_MS + (blockIndex * POCT.BLOCK_INTERVAL_MS);
+  const payload = `MWAL|BLOCK|${blockIndex}|${blockTs}|SALT|${salt || ""}`;
+  return sha256(payload);
+}
+
+function generateKey(){
+  const y = new Date().getFullYear();
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let s = "";
+  for(let i=0;i<6;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return `MWAL-${y}-${s}`;
+}
+function generateWalletId(){
+  // Option 2 : générer une fois, stocker, réutiliser
+  if(crypto && crypto.randomUUID){
+    return "MWAL-WAL-" + crypto.randomUUID().slice(0,8).toUpperCase();
+  }
+  return "MWAL-WAL-" + Math.random().toString(36).slice(2,10).toUpperCase();
+}
+
+let myWalletId = null;
+let myWalletName = "";
+let processedTxs = [];
+let history = [];
+let claimedPoct = new Set();
+
+function getState(){
+  const st = loadFromStorage(STORAGE_KEYS.STATE, {balance:0});
+  return { balance: Number(st.balance) || 0 };
+}
+function setState(st){
+  saveToStorage(STORAGE_KEYS.STATE, { balance: round8(Number(st.balance) || 0) });
+}
+function addHistory(entry){
+  history.push(entry);
+  saveToStorage(STORAGE_KEYS.HISTORY, history);
+}
+function saveClaimedPoct(){
+  saveToStorage(STORAGE_KEYS.CLAIMED_POCT, Array.from(claimedPoct.values()));
+}
+
+function updateBalances(){
+  const st = getState();
+  const balance = round8(st.balance);
+  document.getElementById("balanceMWAL").textContent = balance.toFixed(8);
+
+  const mwollowm = balance * MWAL_TO_MWOLLOWM;
+
+  const valEl = document.getElementById("mwollowmValue");
+  const subEl = document.getElementById("mwollowmSub");
+  const barEl = document.getElementById("mwollowmProgressBar");
+  const txtEl = document.getElementById("mwollowmProgressText");
+
+  const reachedInt = Math.floor(mwollowm + 1e-15);
+
+  if(reachedInt >= 1){
+    valEl.innerHTML = `<span class="mwollowm-reached">✔ OFFICIEL : ${reachedInt} MWOLLOWM</span>`;
+  } else {
+    valEl.textContent = `≈ ${mwollowm.toFixed(8)} MWOLLOWM`;
+  }
+
+  subEl.textContent = `1 MWAL = ${MWAL_TO_MWOLLOWM} MWOLLOWM • ${MWAL_PER_MWOLLOWM} MWAL = 1 MWOLLOWM`;
+
+  const nextTarget = reachedInt + 1;
+  const progress = Math.min(1, Math.max(0, mwollowm - reachedInt));
+  barEl.style.width = (progress * 100).toFixed(2) + "%";
+
+  const remainingMWAL = Math.max(0, (nextTarget * MWAL_PER_MWOLLOWM) - balance);
+  txtEl.textContent = `Progression vers ${nextTarget} MWOLLOWM : ${(progress*100).toFixed(2)}% • Reste ${remainingMWAL.toFixed(8)} MWAL`;
+
+  document.getElementById("txCount").textContent = String(history.length);
+}
+
+function updateWalletView(){
+  document.getElementById("walletId").value = myWalletId;
+  document.getElementById("walletName").value = myWalletName;
+  safeQR(document.getElementById("qrWallet"), myWalletId, 96);
+  updateBalances();
+  updateHistoryTable();
+
+  const box = document.getElementById("activationBox");
+  if(!isProtocolActive()){
+    box.style.display = "block";
+    if(GENESIS_DATE_MS){
+      box.innerHTML = `⏳ Protocole non activé. Transactions refusées avant : <strong>${new Date(GENESIS_DATE_MS).toLocaleString("fr-FR")}</strong>`;
+    }
+  }else{
+    box.style.display = "none";
+  }
+}
+
+function updateHistoryTable(){
+  const tbody = document.getElementById("historyBody");
+  tbody.innerHTML = "";
+
+  if(!history || history.length === 0){
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 7;
+    td.style.textAlign = "center";
+    td.style.opacity = "0.6";
+    td.textContent = "Aucune transaction.";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    document.getElementById("txCount").textContent = "0";
+    return;
+  }
+
+  history.slice().sort((a,b)=> new Date(b.date) - new Date(a.date)).forEach(tx=>{
+    const tr = document.createElement("tr");
+    const tdDate = document.createElement("td");
+    const tdType = document.createElement("td");
+    const tdTx   = document.createElement("td");
+    const tdFrom = document.createElement("td");
+    const tdTo   = document.createElement("td");
+    const tdAmt  = document.createElement("td");
+    const tdNote = document.createElement("td");
+
+    tdDate.textContent = formatDate(tx.date);
+    tdType.textContent = tx.type || "-";
+    tdTx.textContent   = tx.txId || "-";
+    tdFrom.textContent = tx.fromId || "-";
+    tdTo.textContent   = tx.toId || "-";
+    tdAmt.textContent  = Number(tx.amount || 0).toFixed(8);
+    tdNote.textContent = tx.note || "";
+
+    tr.appendChild(tdDate);
+    tr.appendChild(tdType);
+    tr.appendChild(tdTx);
+    tr.appendChild(tdFrom);
+    tr.appendChild(tdTo);
+    tr.appendChild(tdAmt);
+    tr.appendChild(tdNote);
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById("txCount").textContent = String(history.length);
+}
+
+function initWallet(){
+  myWalletId = loadFromStorage(STORAGE_KEYS.WALLET_ID);
+  if(!myWalletId){
+    myWalletId = generateWalletId();
+    saveToStorage(STORAGE_KEYS.WALLET_ID, myWalletId);
+  }
+  myWalletName = loadFromStorage(STORAGE_KEYS.WALLET_NAME, "");
+  processedTxs = loadFromStorage(STORAGE_KEYS.PROCESSED, []);
+  history = loadFromStorage(STORAGE_KEYS.HISTORY, []);
+  if(!history) history = [];
+
+  const st = getState();
+  if(isNaN(st.balance)) setState({balance:0});
+
+  const claimedArr = loadFromStorage(STORAGE_KEYS.CLAIMED_POCT, []);
+  claimedPoct = new Set((claimedArr || []).map(x => Number(x)).filter(n => Number.isFinite(n)));
+
+  updateWalletView();
+}
+
+function parsePlain(plain){
+  const get = (re) => {
+    const m = plain.match(re);
+    return m ? m[1] : null;
+  };
+  return {
+    txId: get(/TX=([^|]+)/),
+    fromId: get(/FROM=([^|]+)/),
+    fromName: get(/FROM_NAME=([^|]+)/),
+    toId: get(/TO=([^|]+)/),
+    amountStr: get(/AMOUNT=([0-9]*\.?[0-9]+)/),
+    sig: get(/SIG=([^|]+)/),
+    note: get(/LABEL=([^|]+)/)
+  };
+}
+
+document.getElementById("btnReceive").onclick = () => {
+  const recvStatusEl = document.getElementById("recvStatus");
+  recvStatusEl.textContent = "";
+  document.getElementById("decodedPlain").value = "";
+
+  if(!isProtocolActive()){
+    recvStatusEl.textContent = "⏳ Protocole non activé : réception refusée avant la date GENESIS.";
+    return;
+  }
+
+  const key = document.getElementById("recvKey").value.trim();
+  const cipher = document.getElementById("recvCode").value.trim();
+
+  if(!key || !cipher){
+    recvStatusEl.textContent = "❌ Clé et code requis.";
+    return;
+  }
+  if(!key.startsWith("MWAL-")){
+    recvStatusEl.textContent = "❌ Clé MWAL invalide.";
+    return;
+  }
+
+  try{
+    applyKeyToAlphabet(key);
+    const plain = decodeString(cipher);
+    document.getElementById("decodedPlain").value = plain;
+
+    const p = parsePlain(plain);
+    if(!p.amountStr || !p.toId || !p.fromId || !p.txId || !p.sig){
+      recvStatusEl.textContent = "⚠️ Message incomplet ou non signé.";
+      return;
+    }
+
+    if(p.toId !== myWalletId){
+      recvStatusEl.textContent = `⚠️ Code destiné à ${p.toId}, pas à ce wallet (${myWalletId}).`;
+      return;
+    }
+
+    if(processedTxs.includes(p.txId)){
+      recvStatusEl.textContent = "❌ Transaction déjà encaissée (rejeu bloqué).";
+      return;
+    }
+
+    let amount = parseFloat(p.amountStr);
+    if(isNaN(amount) || amount <= 0){
+      recvStatusEl.textContent = "⚠️ Montant invalide.";
+      return;
+    }
+    amount = round8(amount);
+    const amountFixed = amount.toFixed(8);
+
+    const expectedSig = computeSignature(p.fromId, amountFixed, p.txId);
+    if(p.sig !== expectedSig){
+      recvStatusEl.textContent = "❌ Signature MWAL invalide – paiement refusé.";
+      return;
+    }
+
+    const st = getState();
+    st.balance = round8(st.balance + amount);
+    setState(st);
+
+    processedTxs.push(p.txId);
+    saveToStorage(STORAGE_KEYS.PROCESSED, processedTxs);
+
+    addHistory({
+      type: "RECEIVE",
+      txId: p.txId,
+      fromId: p.fromName ? `${p.fromName} (${p.fromId})` : p.fromId,
+      toId: myWalletName ? `${myWalletName} (${myWalletId})` : myWalletId,
+      amount: amount,
+      date: new Date().toISOString(),
+      note: p.note || ""
+    });
+
+    updateWalletView();
+    recvStatusEl.textContent = "✅ Encaissement OK (signature valide).";
+  }catch(e){
+    console.error(e);
+    recvStatusEl.textContent = "❌ Erreur lors du décodage / encaissement : " + e.message;
+  }
+};
+
+document.getElementById("btnClearRecv").onclick = () => {
+  document.getElementById("recvKey").value = "";
+  document.getElementById("recvCode").value = "";
+  document.getElementById("decodedPlain").value = "";
+  document.getElementById("recvStatus").textContent = "";
+};
+
+let lastPoct = null;
+
+
+let audioCtx = null;
+function ensureAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  }
+  if(audioCtx.state === "suspended"){
+    audioCtx.resume();
+  }
+}
+function playBeep(){
+  if(!document.getElementById("autoBeep")?.checked) return;
+  ensureAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type="sine";
+  osc.frequency.value=880;
+  gain.gain.value=0.15;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  setTimeout(()=>{osc.stop();}, 120);
+}
+
+let poctAutoDecodeTimer = null;
+let poctAutoClaimTimer  = null;
+
+function clearPoctAutoTimers(){
+  if(poctAutoDecodeTimer){ clearTimeout(poctAutoDecodeTimer); poctAutoDecodeTimer = null; }
+  if(poctAutoClaimTimer){ clearTimeout(poctAutoClaimTimer);  poctAutoClaimTimer  = null; }
+}
+
+
+
+// === Robust AUTO watcher (polling) ===
+// Some scanners do not trigger input/paste reliably.
+// We poll the QR field and re-arm automation on every change.
+
+// === 🎞️ GIF status controller ===
+
+function restoreGif(){
+  const zone = document.getElementById("visual-zone");
+  if(!zone){
+    // recreate the zone if it was removed
+    const decoded = document.getElementById("decodedPlain");
+    if(decoded){
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = `
+<!-- 🎞️ Zone animation visuelle (centre) -->
+<div id="visual-zone" style="text-align:center; margin:12px 0;">
+  <img id="statusGif"
+       src="animation_idle.gif"
+       alt="MWAL status"
+       style="max-width:100%; max-height:220px; border-radius:10px; box-shadow:0 0 15px rgba(0,255,102,0.35); opacity:0.95; transition:opacity 0.25s ease;">
+</div>`;
+      decoded.insertAdjacentElement("afterend", wrapper.firstElementChild);
+    }
+  }else{
+    const img = document.getElementById("statusGif");
+    if(img){
+      img.style.display = "inline-block";
+      img.src = "animation_idle.gif";
+    }
+  }
+}
+
+const statusGif = document.getElementById("statusGif");
+function gifIdle(){ if(statusGif) statusGif.src = "animation_idle.gif"; }
+function gifProcessing(){ if(statusGif) statusGif.src = "animation_processing.gif"; }
+function gifSuccess(){ if(statusGif) statusGif.src = "animation_success.gif"; }
+function gifError(){ if(statusGif) statusGif.src = "animation_error.gif"; }
+
+let __lastPoctValue = "";
+setInterval(() => {
+  const el = document.getElementById("poctText");
+  if(!el) return;
+  const v = el.value || "";
+  if(v && v !== __lastPoctValue){
+    __lastPoctValue = v;
+    schedulePoctAuto();
+  }
+  if(!v){
+    __lastPoctValue = "";
+  }
+}, 300);
+
+function armAutoAgain(){
+  const autoOn = document.getElementById("poctAuto")?.checked;
+  if(!autoOn) return;
+  // If there is already content (scanner pasted), schedule again
+  const txt = document.getElementById("poctText")?.value || "";
+  if(txt.trim()){
+    schedulePoctAuto();
+  }
+}
+
+function schedulePoctAuto(){
+  const autoOn = document.getElementById("poctAuto")?.checked;
+  if(!autoOn) return;
+
+  clearPoctAutoTimers();
+
+  const dDecode = Number(document.getElementById('autoDelayDecode')?.value)||3000;
+  poctAutoDecodeTimer = setTimeout(async () => {
+    gifProcessing();
+    setPoctStatus("⏳ Auto: décodage…");
+    lastPoct = null;
+    document.getElementById("btnPoctDecode").click();
+
+    // laisser le decode async finir (SHA-256)
+    await new Promise(r => setTimeout(r, 0));
+
+    if(lastPoct && lastPoct.ok){
+      const dClaim = Number(document.getElementById('autoDelayClaim')?.value)||3000;
+      poctAutoClaimTimer = setTimeout(() => {
+        gifProcessing();
+        setPoctStatus("⏳ Auto: encaissement…");
+        document.getElementById("btnPoctClaim").click();
+        setTimeout(() => {
+          gifSuccess(); playBeep(); document.getElementById("btnPoctClear").click(); restoreGif();
+        setTimeout(armAutoAgain, 100);
+        }, 250);
+      }, Number(document.getElementById('autoDelayDecode')?.value||3000));
+    }
+  }, Number(document.getElementById('autoDelayDecode')?.value||3000));
+}
+
+
+function parsePoctText(txt){
+  const parts = (txt || "").trim().split("|").filter(Boolean);
+  if(parts.length < 3) return null;
+  if(parts[0] !== "MWAL" || parts[1] !== "POCT") return null;
+
+  const kv = {};
+  for(let i=2;i<parts.length;i++){
+    const seg = parts[i];
+    const idx = seg.indexOf("=");
+    if(idx === -1) continue;
+    const k = seg.slice(0, idx).trim();
+    const v = seg.slice(idx+1).trim();
+    kv[k] = v;
+  }
+
+  const mode = kv.MODE || "official";
+  const block = Number(kv.BLOCK);
+  const ts = Number(kv.TS);
+  const hash = (kv.HASH || "").toLowerCase();
+  const salt = kv.SALT || "";
+
+  if(!Number.isFinite(block) || block < 0) return null;
+  if(!Number.isFinite(ts) || ts <= 0) return null;
+  if(!hash || hash.length < 16) return null;
+
+  const to = kv.TO || "";
+
+  return {mode, block, ts, hash, salt, to};
+}
+
+function setPoctUiEmpty(){
+  document.getElementById("poctMode").textContent = "MODE: —";
+  document.getElementById("poctBlock").textContent = "BLOC: —";
+  document.getElementById("poctTs").textContent = "TS: —";
+  document.getElementById("poctTo").textContent = "TO: —";
+  document.getElementById("poctHashIn").value = "";
+  document.getElementById("poctHashCalc").value = "";
+  document.getElementById("poctStatus").textContent = "—";
+  lastPoct = null;
+  clearPoctAutoTimers();
+}
+
+// Auto: dès qu'on colle/scan le QR, temporisation
+const poctTextEl = document.getElementById("poctText");
+if(poctTextEl){
+  poctTextEl.addEventListener("input", () => {
+    ensureAudio();
+    if(!poctTextEl.value.trim()){
+      clearPoctAutoTimers();
+      return;
+    }
+    schedulePoctAuto();
+  });
+}
+
+const poctAutoEl = document.getElementById("poctAuto");
+if(poctAutoEl){
+  poctAutoEl.addEventListener("change", () => {
+    if(!poctAutoEl.checked) clearPoctAutoTimers();
+    else schedulePoctAuto();
+  });
+}
+
+function setPoctStatus(msg){
+  document.getElementById("poctStatus").textContent = msg;
+}
+
+document.getElementById("btnPoctClear").onclick = () => {
+  lastPoct = null;
+  clearPoctAutoTimers();
+  document.getElementById("poctText").value = "";
+  setPoctUiEmpty();
+};
+
+document.getElementById("btnPoctDecode").onclick = async () => {
+  const txt = document.getElementById("poctText").value;
+  setPoctUiEmpty();
+  clearPoctAutoTimers();
+
+  if(!txt.trim()){
+    gifError(); setPoctStatus("❌ Colle le texte du QR PoCT.");
+    return;
+  }
+
+  const p = parsePoctText(txt);
+  if(!p){
+    gifError(); setPoctStatus("❌ Format PoCT invalide. Attendu : MWAL|POCT|MODE=...|BLOCK=...|TS=...|HASH=...|SALT=...|TO=...");
+    return;
+  }
+
+  document.getElementById("poctMode").textContent = `MODE: ${p.mode}`;
+  document.getElementById("poctBlock").textContent = `BLOC: ${p.block.toLocaleString("fr-FR")}`;
+  document.getElementById("poctTs").textContent = `TS: ${new Date(p.ts).toLocaleString("fr-FR")}`;
+  document.getElementById("poctTo").textContent = `TO: ${p.to ? p.to : "—"}`;
+  document.getElementById("poctHashIn").value = p.hash;
+
+  // TO verrouillé : il doit correspondre à l'ID du wallet
+  if(!p.to || !p.to.trim()){
+    gifError(); setPoctStatus("❌ QR PoCT sans TO : refusé. (Utilise le témoin v3 qui inclut TO=...)");
+    lastPoct = {...p, ok:false, hashCalc:""};
+    return;
+  }
+  if(p.to.trim() !== myWalletId){
+    setPoctStatus(`❌ TO invalide : ce QR est destiné à ${p.to}, pas à ce wallet (${myWalletId}).`);
+    lastPoct = {...p, ok:false, hashCalc:""};
+    return;
+  }
+
+  if(!POCT.ACCEPT_MODES.has(p.mode)){
+    setPoctStatus(`❌ Mode refusé (${p.mode}).`);
+    lastPoct = {...p, ok:false, hashCalc:""};
+    return;
+  }
+
+  const expectedTs = POCT.GENESIS_MS + (p.block * POCT.BLOCK_INTERVAL_MS);
+  if(p.ts !== expectedTs){
+    gifError(); setPoctStatus("❌ Timestamp invalide pour ce bloc.");
+    lastPoct = {...p, ok:false, hashCalc:""};
+    return;
+  }
+
+  if(p.block >= POCT.BLOCKS_TOTAL){
+    gifError(); setPoctStatus("❌ Bloc hors plage (BLOCKS_TOTAL dépassé).");
+    lastPoct = {...p, ok:false, hashCalc:""};
+    return;
+  }
+
+  const hashCalc = await computePoctHash(p.block, p.salt);
+  document.getElementById("poctHashCalc").value = hashCalc;
+
+  const ok = (hashCalc.toLowerCase() === p.hash.toLowerCase());
+  lastPoct = {...p, ok, hashCalc};
+
+  if(!ok){
+    gifError(); setPoctStatus("❌ Hash invalide : recalcul différent.");
+    return;
+  }
+
+  if(claimedPoct.has(p.block)){
+    setPoctStatus("⚠️ Bloc déjà encaissé dans ce wallet (anti-rejeu PoCT).");
+    return;
+  }
+
+  const reward = round8(POCT.REWARD_PER_BLOCK);
+  if(document.getElementById("poctAuto")?.checked){
+  setPoctStatus(`✅ PoCT valide. Auto: encaissement dans 3s… (+${reward.toFixed(8)} MWAL, bloc #${p.block}).`);
+}else{
+  setPoctStatus(`✅ PoCT valide. Récompense : ${reward.toFixed(8)} MWAL (bloc #${p.block}).`);
+}
+};
+
+document.getElementById("btnPoctClaim").onclick = async () => {
+  clearPoctAutoTimers();
+  if(!isProtocolActive()){
+    setPoctStatus("⏳ Protocole non activé : encaissement refusé.");
+    return;
+  }
+  if(!lastPoct){
+    gifError(); setPoctStatus("❌ D'abord : Décoder / Vérifier le QR PoCT.");
+    return;
+  }
+  if(!lastPoct.ok){
+    gifError(); setPoctStatus("❌ PoCT non valide. Encaissement refusé.");
+    return;
+  }
+  if(claimedPoct.has(lastPoct.block)){
+    gifError(); setPoctStatus("❌ Ce bloc est déjà encaissé dans ce wallet.");
+    return;
+  }
+
+  const amount = round8(POCT.REWARD_PER_BLOCK);
+  const st = getState();
+  st.balance = round8(st.balance + amount);
+  setState(st);
+
+  claimedPoct.add(lastPoct.block);
+  saveClaimedPoct();
+
+  const txId = `POCT-${lastPoct.mode}-B${lastPoct.block}-${(lastPoct.hash || "").slice(0,10)}`;
+  addHistory({
+    type: "POCT",
+    txId,
+    fromId: POCT.FROM_ID,
+    toId: myWalletName ? `${myWalletName} (${myWalletId})` : myWalletId,
+    amount,
+    date: new Date().toISOString(),
+    note: `Bloc #${lastPoct.block} • hash OK`
+  });
+
+  updateWalletView();
+  if(document.getElementById("poctAuto")?.checked){
+  setPoctStatus(`🎉 Récompense encaissée : +${amount.toFixed(8)} MWAL (bloc #${lastPoct.block}). Effacement…`);
+}else{
+  setPoctStatus(`🎉 Récompense encaissée : +${amount.toFixed(8)} MWAL (bloc #${lastPoct.block}).`);
+}
+};
+
+document.getElementById("btnSend").onclick = () => {
+  const status = document.getElementById("sendStatus");
+  status.textContent = "";
+  document.getElementById("sendOut").style.display = "none";
+
+  if(!isProtocolActive()){
+    status.textContent = "⏳ Protocole non activé : envoi refusé.";
+    return;
+  }
+
+  const toWallet = document.getElementById("sendTo").value.trim();
+  if(!toWallet){
+    status.textContent = "❌ Veuillez saisir l'ID du wallet destinataire.";
+    return;
+  }
+
+  let amount = parseFloat((document.getElementById("sendAmount").value || "0").replace(",", "."));
+  if(isNaN(amount) || amount <= 0){
+    status.textContent = "❌ Montant invalide.";
+    return;
+  }
+  amount = round8(amount);
+  const amountStr = amount.toFixed(8);
+
+  const note = (document.getElementById("sendLabel").value || "").trim();
+
+  const st = getState();
+  if(st.balance < amount){
+    status.textContent = `❌ Solde insuffisant. Solde: ${round8(st.balance).toFixed(8)} MWAL`;
+    return;
+  }
+
+  const txId = "TX-" + Date.now().toString(36);
+  const sig  = computeSignature(myWalletId, amountStr, txId);
+
+  const plain =
+    `TX=${txId}` +
+    `|FROM=${myWalletId}` +
+    `|FROM_NAME=${(myWalletName || "WALLET")}` +
+    `|TO=${toWallet}` +
+    `|TO_NAME=WALLET` +
+    `|AMOUNT=${amountStr}` +
+    `|UNIT=MWAL` +
+    (note ? `|LABEL=${note}` : "") +
+    `|SIG=${sig}`;
+
+  const key = generateKey();
+  applyKeyToAlphabet(key);
+  const cipher = encodeString(plain);
+
+  st.balance = round8(st.balance - amount);
+  setState(st);
+
+  addHistory({
+    type: "SEND",
+    txId,
+    fromId: myWalletName ? `${myWalletName} (${myWalletId})` : myWalletId,
+    toId: toWallet,
+    amount: amount,
+    date: new Date().toISOString(),
+    note: note
+  });
+
+  updateWalletView();
+
+  document.getElementById("outKey").value = key;
+  document.getElementById("outCode").value = cipher;
+  document.getElementById("sendOut").style.display = "block";
+  status.textContent = "✅ Code généré. Donnez la clé + le code au destinataire.";
+};
+
+document.getElementById("btnSaveName").onclick = () => {
+  myWalletName = document.getElementById("walletName").value.trim();
+  saveToStorage(STORAGE_KEYS.WALLET_NAME, myWalletName);
+  updateWalletView();
+  alert("✅ Nom sauvegardé");
+};
+
+document.getElementById("btnExportJson").onclick = () => {
+  const data = {
+    version: "wallet-standard-poc-poct-1.1",
+    exportDate: new Date().toISOString(),
+    walletId: myWalletId,
+    walletName: myWalletName,
+    state: getState(),
+    processedTxs,
+    history,
+    genesisDateISO: GENESIS_DATE_ISO || null,
+    poct: {
+      genesis_ms: POCT.GENESIS_MS,
+      block_interval_ms: POCT.BLOCK_INTERVAL_MS,
+      blocks_total: POCT.BLOCKS_TOTAL,
+      reward_per_block: POCT.REWARD_PER_BLOCK,
+      accepted_modes: Array.from(POCT.ACCEPT_MODES),
+      claimed_blocks_count: claimedPoct.size
+    }
+  };
+  document.getElementById("exportArea").value = JSON.stringify(data, null, 2);
+};
+
+document.getElementById("btnReset").onclick = () => {
+  if(!confirm("⚠️ Réinitialiser le wallet ?\nSolde + historique + anti-rejeu seront effacés.")) return;
+
+  setState({balance:0});
+  processedTxs = [];
+  history = [];
+  claimedPoct = new Set();
+
+  saveToStorage(STORAGE_KEYS.PROCESSED, processedTxs);
+  saveToStorage(STORAGE_KEYS.HISTORY, history);
+  saveToStorage(STORAGE_KEYS.CLAIMED_POCT, []);
+
+  updateWalletView();
+  document.getElementById("exportArea").value = "";
+  setPoctUiEmpty();
+  alert("✅ Wallet réinitialisé");
+};
+
+initWallet();
+setPoctUiEmpty();
+</script>
+</body>
+</html>
