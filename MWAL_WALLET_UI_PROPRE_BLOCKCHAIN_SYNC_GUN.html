@@ -1,0 +1,2668 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MWAL Wallet — UI Propre + Blockchain Sync (Gun)</title>
+<style>
+  :root{--bg:#070a10;--card:#0b1220;--line:#243043;--ink:#e5e7eb;--mut:#9ca3af;--acc:#3b82f6;}
+  *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+  body{margin:0;background:linear-gradient(180deg,#070a10,#0b0f17 40%,#070a10);color:var(--ink)}
+  header{max-width:1200px;margin:0 auto;padding:16px 16px 0}
+  h1{margin:0;font-size:18px}
+  .sub{color:var(--mut);font-size:12px;margin:6px 0 12px;line-height:1.4}
+  main{max-width:1200px;margin:0 auto;padding:0 16px 16px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .tab{border:1px solid var(--line);background:#050b16;color:var(--ink);padding:8px 10px;border-radius:10px;cursor:pointer}
+  .tab[aria-selected="true"]{outline:2px solid rgba(59,130,246,.35)}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .card{flex:1 1 320px;background:rgba(11,18,32,.85);border:1px solid var(--line);border-radius:16px;padding:12px}
+  .big{flex:1 1 100%;background:radial-gradient(900px 300px at 15% 0%, rgba(59,130,246,.18), transparent 60%),rgba(5,11,22,.65);
+        border:2px solid rgba(59,130,246,.65);border-radius:18px;padding:12px}
+  .kv{display:grid;grid-template-columns:160px 1fr;gap:6px 10px;font-size:12px}
+  .kv .k{color:var(--mut)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+  iframe{width:100%;height:78vh;border:1px solid var(--line);border-radius:16px;background:#000}
+  .view{display:none}
+  .view.active{display:block}
+  label{display:block;color:var(--mut);font-size:12px;margin-bottom:6px}
+  input{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:#050b16;color:var(--ink)}
+  button{border:1px solid var(--line);background:#050b16;color:var(--ink);padding:10px 12px;border-radius:12px;cursor:pointer}
+  button:hover{border-color:rgba(59,130,246,.7)}
+  .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#050b16;color:var(--mut);font-size:12px}
+  .dot{width:8px;height:8px;border-radius:999px;background:#f59e0b}
+  .dot.ok{background:#34d399}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+</head>
+<body>
+<header>
+  <h1>MWAL Wallet</h1>
+  <div class="sub">
+    UI “utilisateur final” : la blockchain est cachée. Le <span class="mono">cours/graph</span> est <b>partagé via Gun</b> (tout le monde voit le même).
+    <br/>Mode expert : accès blockchain complète + debug.
+  </div>
+</header>
+
+<main>
+  <div class="tabs" role="tablist">
+    <button class="tab" id="tDash" aria-selected="true">Dashboard</button>
+    <button class="tab" id="tWallet" aria-selected="false">Wallet</button>
+    <button class="tab" id="tExpert" aria-selected="false">⚙️ Expert</button>
+  </div>
+
+  <section class="view active" id="vDash">
+    <div class="row">
+      <div class="big">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">
+          <div>
+            <div style="font-size:13px;color:var(--mut)">Cours MWAL (public, via Gun)</div>
+            <div style="font-size:28px;font-weight:900" id="rateNow">—</div>
+          </div>
+          <div class="pill"><span class="dot" id="gunDot"></span><span id="gunTxt">Gun: —</span></div>
+        </div>
+        <div class="kv mono" style="margin-top:10px">
+          <div class="k">Dernier point</div><div class="v" id="lastPoint">—</div>
+          <div class="k">Points reçus</div><div class="v" id="pts">0</div>
+          <div class="k">Peer</div><div class="v" id="peerLbl">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <label>Peer Gun (doit être le même pour tout le monde)</label>
+        <input id="peerIn" placeholder="https://.../gun"/>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+          <button id="btnPeerSave">Enregistrer</button>
+          <button id="btnPeerConnect">Connecter</button>
+        </div>
+        <div class="sub" style="margin-top:10px">
+          Astuce : ce même peer sert au Wallet et à la Blockchain sync.
+          Les points “cours” sont publiés dans <span class="mono">MWAL_PUBLIC_COURSE_V1/MWAL</span>.
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:13px;color:var(--mut)">Solde local (info)</div>
+        <div class="kv mono" style="margin-top:10px">
+          <div class="k">Wallet (local)</div><div class="v" id="balWallet">—</div>
+          <div class="k">Blockchain (local)</div><div class="v" id="balChain">—</div>
+          <div class="k">Total affiché</div><div class="v" id="balTotal">—</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="vWallet">
+    <iframe id="walletFrame" sandbox="allow-scripts allow-forms allow-same-origin" srcdoc="&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;fr&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;UTF-8&quot; /&gt;
+  &lt;title&gt;MWAL – Wallet Standard (PoCT + Gun Sync + Auto-Encaissement)&lt;/title&gt;
+  &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot; /&gt;
+  &lt;style&gt;
+    @import url(&#x27;https://fonts.googleapis.com/css2?family=Orbitron:wght@600&amp;family=JetBrains+Mono&amp;display=swap&#x27;);
+    :root{
+      --bg1:#000; --bg2:#001a00; --txt:#00ff66; --btn:#00ff66; --btn-h:#33ff99;
+      --card:#001400; --border:#00ff66; --accent:#ffd700; --warn:#ffcc00; --bad:#ff4444; --cyan:#00ffff;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;padding:0;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--txt);
+      font-family:&#x27;JetBrains Mono&#x27;,monospace;text-align:center;min-height:100vh;}
+    h1{font-family:&#x27;Orbitron&#x27;,sans-serif;margin:20px 10px 5px;text-shadow:0 0 15px var(--btn);font-size:2rem;}
+    h2{font-family:&#x27;Orbitron&#x27;,sans-serif;font-size:1.05rem;margin:8px 0;}
+    p{margin:4px 0;}
+    .wrap{max-width:1200px;margin:0 auto 30px;padding:8px;}
+    .row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:10px;}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;
+      box-shadow:0 0 15px rgba(0,255,100,0.2);flex:1 1 360px;min-width:320px;text-align:left;}
+    .card h2,.card p{text-align:center;}
+    label{display:block;text-align:left;font-size:0.8rem;margin:4px 0 2px;}
+    input,textarea,select{width:100%;background:#000;border:1px solid var(--border);border-radius:6px;color:var(--txt);
+      padding:6px;font-family:&#x27;JetBrains Mono&#x27;,monospace;font-size:0.85rem;}
+    textarea{min-height:66px;resize:vertical;}
+    .mainbtn,.sm-btn{background:var(--btn);color:#000;border:none;border-radius:8px;padding:7px 12px;cursor:pointer;
+      font-weight:bold;margin:6px 4px 2px 0;font-size:0.82rem;}
+    .sm-btn{padding:4px 10px;font-size:0.78rem;}
+    .mainbtn:hover,.sm-btn:hover{background:var(--btn-h);}
+    .danger-btn{background:var(--bad);color:#fff;}
+    .danger-btn:hover{background:#ff6666;}
+    .muted{opacity:0.85;font-size:0.78rem;}
+    .alert{background:rgba(0,255,102,0.10);border:2px solid var(--border);border-radius:10px;padding:10px;margin:10px auto;
+      max-width:1100px;font-size:0.9rem;text-align:center;}
+    .alert.warn{border-color:var(--warn);color:var(--warn);background:rgba(255,204,0,0.07);}
+    .alert.cyan{border-color:rgba(0,255,255,0.65);color:var(--cyan);background:rgba(0,255,255,0.06);}
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px;margin:8px 0;}
+    .stat-box{background:rgba(0,255,102,0.05);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center;}
+    .stat-label{font-size:0.7rem;opacity:0.75;margin-bottom:3px;}
+    .stat-value{font-size:1.05rem;font-weight:bold;font-family:&#x27;Orbitron&#x27;,sans-serif;word-break:break-word;}
+    table{width:100%;border-collapse:collapse;font-size:0.75rem;margin-top:6px;}
+    th,td{border:1px solid rgba(0,255,102,0.3);padding:4px 5px;text-align:left;}
+    th{background:rgba(0,255,102,0.1);}
+    .qr-container{margin-top:6px;display:inline-block;background:#fff;padding:3px;border-radius:6px;}
+    .mwollowm-box{margin-top:8px;padding:6px;border:1px dashed rgba(255,215,0,0.55);border-radius:10px;
+      background:rgba(255,215,0,0.05);text-align:center;}
+    .mwollowm-value{font-size:1.05rem;font-weight:bold;font-family:&#x27;Orbitron&#x27;,sans-serif;line-height:1.2;}
+    .mwollowm-reached{color: var(--accent);text-shadow: 0 0 10px var(--accent);}
+    .mwollowm-sub{font-size:0.75rem;opacity:0.9;margin-top:2px;}
+    .mwollowm-progress-wrap{width:100%;height:10px;border:1px solid rgba(0,255,102,0.35);border-radius:999px;overflow:hidden;
+      margin-top:6px;background:rgba(0,0,0,0.35);}
+    .mwollowm-progress-bar{height:100%;width:0%;background:var(--txt);transition:width 250ms ease;}
+    .mwollowm-progress-text{margin-top:4px;font-size:0.72rem;opacity:0.95;}
+    footer{margin:10px 0 18px;font-size:0.75rem;opacity:0.65;text-align:center;}
+    .codebox{background:#000;border:1px dashed rgba(0,255,102,0.6);border-radius:10px;padding:8px;}
+    .center{text-align:center;}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid rgba(0,255,102,0.35);
+      font-size:0.72rem;opacity:0.95;margin:2px 3px;}
+    .toggleRow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;margin-top:6px}
+    .toggleRow label{display:flex;gap:8px;align-items:center;justify-content:center;margin:0;width:auto}
+    .small{font-size:0.72rem;opacity:0.85}
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h1&gt;👛 MWAL WALLET STANDARD&lt;/h1&gt;
+
+  &lt;div class=&quot;alert&quot;&gt;
+    Send + Receive (codes signés) + &lt;strong&gt;Encaissement PoCT via QR&lt;/strong&gt; (témoin de blocs).
+    &lt;br/&gt;✅ &lt;strong&gt;Synchronisé via Gun&lt;/strong&gt; + ✅ &lt;strong&gt;Auto-encaissement activable&lt;/strong&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;wrap&quot;&gt;
+
+    &lt;div class=&quot;row&quot;&gt;
+      &lt;div class=&quot;card&quot;&gt;
+        &lt;h2&gt;🔌 Synchronisation Gun&lt;/h2&gt;
+        &lt;p class=&quot;muted center&quot;&gt;Ce wallet publie &lt;b&gt;profil&lt;/b&gt;, &lt;b&gt;stats&lt;/b&gt; et &lt;b&gt;transactions&lt;/b&gt; dans Gun. La visionneuse lit ces données.&lt;/p&gt;
+        &lt;label&gt;GUN_PEER_URL&lt;/label&gt;
+        &lt;input id=&quot;gunPeer&quot; placeholder=&quot;https://.../gun&quot; /&gt;
+        &lt;button class=&quot;sm-btn&quot; id=&quot;btnGunConnect&quot;&gt;Connecter Gun&lt;/button&gt;
+        &lt;p class=&quot;muted center&quot; id=&quot;gunStatus&quot;&gt;—&lt;/p&gt;
+
+        &lt;div class=&quot;toggleRow&quot;&gt;
+          &lt;label class=&quot;small&quot;&gt;
+            &lt;input type=&quot;checkbox&quot; id=&quot;autoReceiveOn&quot;&gt;
+            Auto-encaissement MWAL
+          &lt;/label&gt;
+          &lt;label class=&quot;small&quot;&gt;
+            &lt;input type=&quot;checkbox&quot; id=&quot;autoPoctOn&quot;&gt;
+            Auto-encaissement PoCT
+          &lt;/label&gt;
+        &lt;/div&gt;
+        &lt;p class=&quot;muted center small&quot;&gt;Les boucles auto utilisent les mêmes vérifications que les boutons (anti-rejeu, signatures, hash PoCT).&lt;/p&gt;
+
+        &lt;div class=&quot;alert warn&quot; style=&quot;margin-top:8px&quot;&gt;
+          ⚠️ Ne publie jamais de secrets dans Gun. Ici on publie uniquement: ID, nom, stats, tx.
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;card&quot;&gt;
+        &lt;h2&gt;🆔 Mon wallet&lt;/h2&gt;
+
+        &lt;div class=&quot;stats-grid&quot;&gt;
+          &lt;div class=&quot;stat-box&quot;&gt;
+            &lt;div class=&quot;stat-label&quot;&gt;Solde&lt;/div&gt;
+            &lt;div class=&quot;stat-value&quot; id=&quot;balanceMWAL&quot;&gt;0.00000000&lt;/div&gt;
+            &lt;div class=&quot;stat-label&quot;&gt;MWAL&lt;/div&gt;
+
+            &lt;div class=&quot;mwollowm-box&quot; id=&quot;mwollowmBox&quot;&gt;
+              &lt;div class=&quot;stat-label&quot;&gt;Équivalent officiel&lt;/div&gt;
+              &lt;div class=&quot;mwollowm-value&quot; id=&quot;mwollowmValue&quot;&gt;≈ 0.00000000 MWOLLOWM&lt;/div&gt;
+              &lt;div class=&quot;mwollowm-sub&quot; id=&quot;mwollowmSub&quot;&gt;--&lt;/div&gt;
+              &lt;div class=&quot;mwollowm-progress-wrap&quot; title=&quot;Progression vers le prochain MWOLLOWM&quot;&gt;
+                &lt;div class=&quot;mwollowm-progress-bar&quot; id=&quot;mwollowmProgressBar&quot;&gt;&lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;mwollowm-progress-text muted&quot; id=&quot;mwollowmProgressText&quot;&gt;&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;stat-box&quot;&gt;
+            &lt;div class=&quot;stat-label&quot;&gt;Transactions (local)&lt;/div&gt;
+            &lt;div class=&quot;stat-value&quot; id=&quot;txCount&quot;&gt;0&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;stat-box&quot;&gt;
+            &lt;div class=&quot;stat-label&quot;&gt;Miné (PoCT)&lt;/div&gt;
+            &lt;div class=&quot;stat-value&quot; id=&quot;statMined&quot;&gt;0.00000000&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;stat-box&quot;&gt;
+            &lt;div class=&quot;stat-label&quot;&gt;Reçu&lt;/div&gt;
+            &lt;div class=&quot;stat-value&quot; id=&quot;statReceived&quot;&gt;0.00000000&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;stat-box&quot;&gt;
+            &lt;div class=&quot;stat-label&quot;&gt;Envoyé&lt;/div&gt;
+            &lt;div class=&quot;stat-value&quot; id=&quot;statSent&quot;&gt;0.00000000&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;label&gt;ID wallet&lt;/label&gt;
+        &lt;input id=&quot;walletId&quot; readonly /&gt;
+        &lt;div class=&quot;center&quot;&gt;&lt;div id=&quot;qrWallet&quot; class=&quot;qr-container&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+
+        &lt;label&gt;Nom / Alias&lt;/label&gt;
+        &lt;input id=&quot;walletName&quot; placeholder=&quot;Ex : Alice, Boutique Laurent&quot; /&gt;
+        &lt;button class=&quot;sm-btn&quot; id=&quot;btnSaveName&quot;&gt;Enregistrer le nom&lt;/button&gt;
+
+        &lt;hr style=&quot;border-color:rgba(0,255,102,0.3);margin:10px 0;&quot; /&gt;
+
+        &lt;h2&gt;🧾 Export / Reset&lt;/h2&gt;
+        &lt;button class=&quot;sm-btn&quot; id=&quot;btnExportJson&quot;&gt;Exporter JSON&lt;/button&gt;
+        &lt;button class=&quot;sm-btn danger-btn&quot; id=&quot;btnReset&quot;&gt;Réinitialiser wallet&lt;/button&gt;
+        &lt;textarea id=&quot;exportArea&quot; readonly placeholder=&quot;Export JSON ici...&quot;&gt;&lt;/textarea&gt;
+
+        &lt;div class=&quot;alert warn&quot; id=&quot;activationBox&quot; style=&quot;display:none;margin-top:10px;&quot;&gt;
+          ⏳ Protocole non activé. Les transactions seront refusées avant la date GENESIS.
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;card&quot;&gt;
+        &lt;h2&gt;📥 Recevoir (code MWAL)&lt;/h2&gt;
+        &lt;p class=&quot;muted center&quot;&gt;
+          Collez la &lt;strong&gt;clé MWAL&lt;/strong&gt; et le &lt;strong&gt;code chiffré&lt;/strong&gt;. Vérifie TO, TX, SIG.
+        &lt;/p&gt;
+
+        &lt;label for=&quot;recvKey&quot;&gt;Clé MWAL reçue&lt;/label&gt;
+        &lt;input id=&quot;recvKey&quot; placeholder=&quot;MWAL-2026-XXXXXX&quot; /&gt;
+
+        &lt;label for=&quot;recvCode&quot;&gt;Code chiffré reçu&lt;/label&gt;
+        &lt;textarea id=&quot;recvCode&quot; placeholder=&quot;Coller ici le code chiffré.&quot;&gt;&lt;/textarea&gt;
+
+        &lt;button class=&quot;mainbtn&quot; id=&quot;btnReceive&quot;&gt;Encaisser&lt;/button&gt;
+        &lt;button class=&quot;sm-btn&quot; id=&quot;btnClearRecv&quot;&gt;Effacer&lt;/button&gt;
+
+        &lt;label for=&quot;decodedPlain&quot;&gt;Message décodé&lt;/label&gt;
+        &lt;textarea id=&quot;decodedPlain&quot; readonly&gt;&lt;/textarea&gt;
+
+        &lt;p class=&quot;muted&quot; id=&quot;recvStatus&quot;&gt;&lt;/p&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;card&quot;&gt;
+        &lt;h2&gt;🧬 Encaisser PoCT (QR du témoin)&lt;/h2&gt;
+        &lt;div class=&quot;alert cyan&quot;&gt;
+          Colle le texte du &lt;strong&gt;QR&lt;/strong&gt; généré par le témoin.
+          &lt;br/&gt;Le wallet &lt;strong&gt;recalcule le hash&lt;/strong&gt; et valide le bloc avant de créditer.
+        &lt;/div&gt;
+
+        &lt;label for=&quot;poctText&quot;&gt;Texte QR PoCT&lt;/label&gt;
+        &lt;textarea id=&quot;poctText&quot; placeholder=&quot;MWAL|POCT|MODE=official|BLOCK=...|TS=...|HASH=...|SALT=...|TO=MWAL-WAL-XXXXXX&quot;&gt;&lt;/textarea&gt;
+
+        &lt;div class=&quot;row&quot; style=&quot;margin-top:6px;&quot;&gt;
+          &lt;button class=&quot;mainbtn&quot; id=&quot;btnPoctDecode&quot;&gt;Décoder / Vérifier&lt;/button&gt;
+          &lt;button class=&quot;sm-btn&quot; id=&quot;btnPoctClaim&quot;&gt;Encaisser la récompense&lt;/button&gt;
+          &lt;button class=&quot;sm-btn danger-btn&quot; id=&quot;btnPoctClear&quot;&gt;Effacer&lt;/button&gt;
+        &lt;/div&gt;
+
+        &lt;div class=&quot;codebox&quot; style=&quot;margin-top:8px;&quot;&gt;
+          &lt;div class=&quot;muted center&quot;&gt;Détails PoCT&lt;/div&gt;
+          &lt;div class=&quot;muted&quot;&gt;
+            &lt;span class=&quot;pill&quot; id=&quot;poctMode&quot;&gt;MODE: —&lt;/span&gt;
+            &lt;span class=&quot;pill&quot; id=&quot;poctBlock&quot;&gt;BLOC: —&lt;/span&gt;
+            &lt;span class=&quot;pill&quot; id=&quot;poctTs&quot;&gt;TS: —&lt;/span&gt;
+            &lt;span class=&quot;pill&quot; id=&quot;poctTo&quot;&gt;TO: —&lt;/span&gt;
+          &lt;/div&gt;
+          &lt;label&gt;Hash reçu&lt;/label&gt;
+          &lt;textarea id=&quot;poctHashIn&quot; readonly&gt;&lt;/textarea&gt;
+          &lt;label&gt;Hash recalculé&lt;/label&gt;
+          &lt;textarea id=&quot;poctHashCalc&quot; readonly&gt;&lt;/textarea&gt;
+          &lt;p class=&quot;muted&quot; id=&quot;poctStatus&quot;&gt;—&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;row&quot;&gt;
+      &lt;div class=&quot;card&quot; style=&quot;flex:1 1 100%;&quot;&gt;
+        &lt;h2&gt;📤 Envoyer (générer un code)&lt;/h2&gt;
+        &lt;p class=&quot;muted center&quot;&gt;
+          Débite votre solde local et génère un &lt;strong&gt;code signé&lt;/strong&gt; à remettre au destinataire.
+        &lt;/p&gt;
+
+        &lt;div class=&quot;row&quot;&gt;
+          &lt;div class=&quot;field&quot; style=&quot;flex:1 1 320px;&quot;&gt;
+            &lt;label for=&quot;sendTo&quot;&gt;Wallet destinataire (TO)&lt;/label&gt;
+            &lt;input id=&quot;sendTo&quot; placeholder=&quot;MWAL-POS-XXXXXX ou MWAL-WAL-XXXXXX&quot; /&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;field&quot; style=&quot;flex:1 1 220px;&quot;&gt;
+            &lt;label for=&quot;sendAmount&quot;&gt;Montant (MWAL)&lt;/label&gt;
+            &lt;input id=&quot;sendAmount&quot; type=&quot;number&quot; min=&quot;0&quot; step=&quot;0.00000001&quot; value=&quot;0.00000001&quot; /&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;field&quot; style=&quot;flex:1 1 280px;&quot;&gt;
+            &lt;label for=&quot;sendLabel&quot;&gt;Libellé (optionnel)&lt;/label&gt;
+            &lt;input id=&quot;sendLabel&quot; placeholder=&quot;Ex : Paiement, Remboursement, Facture #123&quot; /&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;button class=&quot;mainbtn&quot; id=&quot;btnSend&quot;&gt;Générer l&#x27;envoi&lt;/button&gt;
+
+        &lt;div id=&quot;sendOut&quot; class=&quot;codebox&quot; style=&quot;display:none;margin-top:8px;&quot;&gt;
+          &lt;p class=&quot;center&quot;&gt;&lt;strong&gt;✅ Envoi généré&lt;/strong&gt; — à coller dans le wallet destinataire&lt;/p&gt;
+          &lt;label&gt;Clé&lt;/label&gt;
+          &lt;input id=&quot;outKey&quot; readonly /&gt;
+          &lt;label&gt;Code&lt;/label&gt;
+          &lt;textarea id=&quot;outCode&quot; readonly&gt;&lt;/textarea&gt;
+        &lt;/div&gt;
+
+        &lt;p class=&quot;muted&quot; id=&quot;sendStatus&quot;&gt;&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;row&quot;&gt;
+      &lt;div class=&quot;card&quot; style=&quot;flex:1 1 100%;&quot;&gt;
+        &lt;h2&gt;📚 Historique (local)&lt;/h2&gt;
+        &lt;div style=&quot;max-height:300px;overflow:auto;&quot;&gt;
+          &lt;table&gt;
+            &lt;thead&gt;
+              &lt;tr&gt;
+                &lt;th&gt;Date&lt;/th&gt;
+                &lt;th&gt;Type&lt;/th&gt;
+                &lt;th&gt;TX&lt;/th&gt;
+                &lt;th&gt;De&lt;/th&gt;
+                &lt;th&gt;À&lt;/th&gt;
+                &lt;th&gt;Montant (MWAL)&lt;/th&gt;
+                &lt;th&gt;Note&lt;/th&gt;
+              &lt;/tr&gt;
+            &lt;/thead&gt;
+            &lt;tbody id=&quot;historyBody&quot;&gt;
+              &lt;tr&gt;&lt;td colspan=&quot;7&quot; style=&quot;text-align:center;opacity:0.6;&quot;&gt;Aucune transaction.&lt;/td&gt;&lt;/tr&gt;
+            &lt;/tbody&gt;
+          &lt;/table&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+    &lt;div class=&quot;completed-list&quot; id=&quot;completedList&quot;&gt;
+    &lt;strong&gt;✅ Tâches terminées&lt;/strong&gt;
+    &lt;ul id=&quot;completedItems&quot;&gt;&lt;li&gt;Aucune tâche terminée&lt;/li&gt;&lt;/ul&gt;
+  &lt;/div&gt;
+
+  &lt;footer&gt;© MWAL – Wallet Standard + PoCT + Gun Sync + Auto-Encaissement&lt;/footer&gt;
+
+  &lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js&quot;&gt;&lt;/script&gt;
+  &lt;script src=&quot;https://cdn.jsdelivr.net/npm/gun/gun.js&quot;&gt;&lt;/script&gt;
+
+&lt;script&gt;
+/* =======================
+   1) CONFIG GUN
+======================= */
+const DEFAULT_GUN_PEER = &quot;https://gun-encaissement.onrender.com/gun&quot;;
+const NS = { root: &quot;mwal&quot;, v: &quot;v1&quot; };
+
+let gun = null;
+let net = null;
+
+function connectGun(){
+  const peer = (document.getElementById(&quot;gunPeer&quot;).value || DEFAULT_GUN_PEER).trim();
+  document.getElementById(&quot;gunPeer&quot;).value = peer;
+  try{
+    gun = Gun({ peers:[peer], localStorage:false, radisk:false });
+    net = gun.get(NS.root).get(NS.v);
+    setGunStatus(&quot;✅ Gun connecté : &quot; + peer);
+    publishAll();
+  }catch(e){
+    console.error(e);
+    setGunStatus(&quot;❌ Erreur Gun : &quot; + e.message);
+  }
+}
+function setGunStatus(txt){ document.getElementById(&quot;gunStatus&quot;).textContent = txt; }
+function nowMs(){ return Date.now(); }
+
+/* =======================
+   2) CONFIG MWAL / PoCT
+======================= */
+const MWAL_PROTOCOL_SECRET = &quot;MWAL_CORE_2025_V1_PROTOCOL&quot;;
+const MWAL_PER_MWOLLOWM = 144000;
+const MWAL_TO_MWOLLOWM  = 1 / MWAL_PER_MWOLLOWM;
+
+const GENESIS_DATE_ISO = &quot;&quot;;
+const GENESIS_DATE_MS  = GENESIS_DATE_ISO ? new Date(GENESIS_DATE_ISO).getTime() : null;
+function isProtocolActive(){
+  if(!GENESIS_DATE_MS) return true;
+  return Date.now() &gt;= GENESIS_DATE_MS;
+}
+
+const POCT = {
+  GENESIS_MS: new Date(&quot;2026-01-07T00:00:00+01:00&quot;).getTime(),
+  BLOCK_INTERVAL_MS: 4000,
+  BLOCKS_TOTAL: 2880000,
+  REWARD_PER_BLOCK: 1 / 144000,
+  ACCEPT_MODES: new Set([&quot;official&quot;]),
+  FROM_ID: &quot;MWAL-POCT-MINTER&quot;
+};
+
+function computeSignature(fromId, amountStr, txId) {
+  const raw = fromId + &quot;|&quot; + amountStr + &quot;|&quot; + txId + &quot;|&quot; + MWAL_PROTOCOL_SECRET;
+  let h = 0;
+  for (let i = 0; i &lt; raw.length; i++) h = Math.imul(31, h) + raw.charCodeAt(i) | 0;
+  return Math.abs(h).toString(36).toUpperCase();
+}
+
+/* =======================
+   3) STORAGE
+======================= */
+const STORAGE_KEYS = {
+  WALLET_ID:    &quot;mwal_std_wallet_id&quot;,
+  WALLET_NAME:  &quot;mwal_std_wallet_name&quot;,
+  STATE:        &quot;mwal_std_state&quot;,
+  PROCESSED:    &quot;mwal_std_processed_txs&quot;,
+  HISTORY:      &quot;mwal_std_history&quot;,
+  CLAIMED_POCT: &quot;mwal_std_claimed_poct_blocks&quot;,
+  GUN_PEER:     &quot;mwal_gun_peer&quot;,
+  AUTO_RECV:    &quot;mwal_auto_receive_on&quot;,
+  AUTO_POCT:    &quot;mwal_auto_poct_on&quot;
+};
+
+function saveToStorage(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); }
+  catch(e){ console.error(&quot;Erreur sauvegarde:&quot;, e); }
+}
+function loadFromStorage(key, def=null) {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : def;
+  } catch(e){
+    console.error(&quot;Erreur chargement:&quot;, e);
+    return def;
+  }
+}
+
+/* =======================
+   4) UTILS
+======================= */
+function round8(x){ return Math.round((Number(x)||0) * 1e8) / 1e8; }
+function formatDate(d){ return new Date(d).toLocaleString(&quot;fr-FR&quot;); }
+
+function safeQR(div, text, size){
+  div.innerHTML = &quot;&quot;;
+  if(!text) return;
+  new QRCode(div, { text, width:(size||128), height:(size||128) });
+}
+
+function hashSeed(str){
+  let h = 0;
+  for(let i=0;i&lt;str.length;i++) h = Math.imul(31,h) + str.charCodeAt(i) | 0;
+  return Math.abs(h);
+}
+function seededShuffle(arr, seed){
+  arr = arr.slice();
+  let m = arr.length, t, i;
+  while(m){
+    seed = (seed * 9301 + 49297) % 233280;
+    i = Math.floor(seed / 233280 * m--);
+    t = arr[m]; arr[m] = arr[i]; arr[i] = t;
+  }
+  return arr;
+}
+const pool = &quot;ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789&quot;;
+function genCode(ch){
+  let s = hashSeed(ch + &quot;_NA1C142&quot;);
+  let out = &quot;&quot;;
+  for(let i=0;i&lt;6;i++){
+    s = (s * 9301 + 49297) % 233280;
+    out += pool[Math.floor(s / 233280 * pool.length)];
+  }
+  return out.replace(/^([A-Z])/, ch === ch.toLowerCase() ? ch.toLowerCase() : ch.toUpperCase());
+}
+const baseAlphabet = {};
+const allChars =
+  &quot;ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÀÂÄÃàâäÉÈÊËéèêëÎÏîïÓÖôöÙÛÜùûüÇç0123456789.,!?;:&#x27;\&quot;-_()@#%+/\\*=&lt;&gt;\n\t &quot;;
+for(const c of allChars) baseAlphabet[c] = (c === &quot; &quot;) ? &quot; &quot; : genCode(c);
+
+let alphabet = {...baseAlphabet};
+let inverse  = {};
+function rebuildInverse(){
+  inverse = {};
+  for(const [k,v] of Object.entries(alphabet)) inverse[v] = k;
+}
+rebuildInverse();
+
+function applyKeyToAlphabet(key){
+  const seed = hashSeed(key);
+  const keys = Object.keys(baseAlphabet).filter(c =&gt; c !== &quot; &quot;);
+  const vals = Object.values(baseAlphabet).filter(c =&gt; c !== &quot; &quot;);
+  const shuffled = seededShuffle(vals, seed);
+  alphabet = {};
+  keys.forEach((k,i)=&gt; alphabet[k] = shuffled[i]);
+  alphabet[&quot; &quot;] = &quot; &quot;;
+  rebuildInverse();
+}
+function encodeString(str){
+  let res = &quot;&quot;;
+  for(const ch of str) res += (alphabet[ch] ?? ch);
+  return res;
+}
+function decodeString(cipher){
+  let res = &quot;&quot;;
+  let i = 0;
+  const entries = Object.entries(inverse).sort((a,b)=&gt; b[0].length - a[0].length);
+  while(i &lt; cipher.length){
+    let matched = false;
+    for(const [code, plain] of entries){
+      if(cipher.startsWith(code, i)){
+        res += plain; i += code.length; matched = true; break;
+      }
+    }
+    if(!matched){ res += cipher[i]; i++; }
+  }
+  return res;
+}
+
+async function sha256(text){
+  const data = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest(&quot;SHA-256&quot;, data);
+  return Array.from(new Uint8Array(hashBuffer)).map(b =&gt; b.toString(16).padStart(2, &quot;0&quot;)).join(&quot;&quot;);
+}
+async function computePoctHash(blockIndex, salt){
+  const blockTs = POCT.GENESIS_MS + (blockIndex * POCT.BLOCK_INTERVAL_MS);
+  return sha256(`MWAL|BLOCK|${blockIndex}|${blockTs}|SALT|${salt || &quot;&quot;}`);
+}
+
+function generateKey(){
+  const y = new Date().getFullYear();
+  const chars = &quot;ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789&quot;;
+  let s = &quot;&quot;;
+  for(let i=0;i&lt;6;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return `MWAL-${y}-${s}`;
+}
+function generateWalletId(){
+  if(crypto &amp;&amp; crypto.randomUUID) return &quot;MWAL-WAL-&quot; + crypto.randomUUID().slice(0,8).toUpperCase();
+  return &quot;MWAL-WAL-&quot; + Math.random().toString(36).slice(2,10).toUpperCase();
+}
+
+/* =======================
+   5) STATE + LEDGER
+======================= */
+let myWalletId = null;
+let myWalletName = &quot;&quot;;
+let processedTxs = [];
+let history = [];
+let claimedPoct = new Set();
+
+function getState(){
+  const st = loadFromStorage(STORAGE_KEYS.STATE, {balance:0});
+  return { balance: Number(st.balance) || 0 };
+}
+function setState(st){
+  saveToStorage(STORAGE_KEYS.STATE, { balance: round8(Number(st.balance) || 0) });
+}
+function addHistory(entry){
+  history.push(entry);
+  saveToStorage(STORAGE_KEYS.HISTORY, history);
+  publishTx(entry);
+  publishStatsDebounced();
+}
+function saveClaimedPoct(){
+  saveToStorage(STORAGE_KEYS.CLAIMED_POCT, Array.from(claimedPoct.values()));
+}
+
+/* =======================
+   6) GUN PUBLISH
+======================= */
+function gunPathWallet(){
+  if(!net || !myWalletId) return null;
+  return net.get(&quot;wallets&quot;).get(myWalletId);
+}
+function publishIndexAndProfile(){
+  if(!net) return;
+  net.get(&quot;walletIndex&quot;).get(myWalletId).put({ id: myWalletId, name: myWalletName || &quot;&quot;, lastSeen: nowMs() });
+  net.get(&quot;lastSeen&quot;).put({ ts: nowMs() });
+  const w = gunPathWallet(); if(!w) return;
+  w.get(&quot;profile&quot;).put({ id: myWalletId, name: myWalletName || &quot;&quot;, updatedAt: nowMs() });
+}
+function computeAggregates(){
+  let totalMined=0, totalReceived=0, totalSent=0;
+  for(const tx of history){
+    const a = Number(tx.amount||0);
+    if(tx.type === &quot;POCT&quot;) totalMined += a;
+    else if(tx.type === &quot;RECEIVE&quot;) totalReceived += a;
+    else if(tx.type === &quot;SEND&quot;) totalSent += a;
+  }
+  return {
+    totalMined: round8(totalMined),
+    totalReceived: round8(totalReceived),
+    totalSent: round8(totalSent),
+    txCount: history.length
+  };
+}
+let __statsTimer = null;
+function publishStatsDebounced(){
+  if(__statsTimer) clearTimeout(__statsTimer);
+  __statsTimer = setTimeout(publishStats, 150);
+}
+function publishStats(){
+  const w = gunPathWallet();
+  if(!w) return;
+  const st = getState();
+  const agg = computeAggregates();
+  w.get(&quot;stats&quot;).put({
+    id: myWalletId,
+    name: myWalletName || &quot;&quot;,
+    balance: round8(st.balance),
+    ...agg,
+    lastSeen: nowMs(),
+    version: &quot;wallet-standard-poct+gun+auto-1.0&quot;
+  });
+  publishIndexAndProfile();
+  document.getElementById(&quot;statMined&quot;).textContent = agg.totalMined.toFixed(8);
+  document.getElementById(&quot;statReceived&quot;).textContent = agg.totalReceived.toFixed(8);
+  document.getElementById(&quot;statSent&quot;).textContent = agg.totalSent.toFixed(8);
+}
+function publishTx(tx){
+  const w = gunPathWallet();
+  if(!w || !tx) return;
+  const txId = tx.txId || (&quot;TX-&quot; + nowMs());
+  w.get(&quot;txs&quot;).get(txId).put({
+    txId,
+    type: tx.type || &quot;&quot;,
+    fromId: tx.fromId || &quot;&quot;,
+    toId: tx.toId || &quot;&quot;,
+    amount: round8(Number(tx.amount||0)),
+    note: tx.note || &quot;&quot;,
+    ts: (tx.date ? new Date(tx.date).getTime() : nowMs())
+  });
+}
+function publishAll(){
+  publishIndexAndProfile();
+  publishStats();
+  history.slice().sort((a,b)=&gt; new Date(b.date)-new Date(a.date)).slice(0,50).forEach(publishTx);
+}
+
+/* =======================
+   7) UI
+======================= */
+function updateBalances(){
+  const balance = round8(getState().balance);
+  document.getElementById(&quot;balanceMWAL&quot;).textContent = balance.toFixed(8);
+
+  const mwollowm = balance * MWAL_TO_MWOLLOWM;
+  const reachedInt = Math.floor(mwollowm + 1e-15);
+  const valEl = document.getElementById(&quot;mwollowmValue&quot;);
+  const subEl = document.getElementById(&quot;mwollowmSub&quot;);
+  const barEl = document.getElementById(&quot;mwollowmProgressBar&quot;);
+  const txtEl = document.getElementById(&quot;mwollowmProgressText&quot;);
+
+  if(reachedInt &gt;= 1){
+    valEl.innerHTML = `&lt;span class=&quot;mwollowm-reached&quot;&gt;✔ OFFICIEL : ${reachedInt} MWOLLOWM&lt;/span&gt;`;
+  } else {
+    valEl.textContent = `≈ ${mwollowm.toFixed(8)} MWOLLOWM`;
+  }
+  subEl.textContent = `1 MWAL = ${MWAL_TO_MWOLLOWM} MWOLLOWM • ${MWAL_PER_MWOLLOWM} MWAL = 1 MWOLLOWM`;
+
+  const progress = Math.min(1, Math.max(0, mwollowm - reachedInt));
+  barEl.style.width = (progress * 100).toFixed(2) + &quot;%&quot;;
+  const remainingMWAL = Math.max(0, ((reachedInt+1) * MWAL_PER_MWOLLOWM) - balance);
+  txtEl.textContent = `Progression vers ${reachedInt+1} MWOLLOWM : ${(progress*100).toFixed(2)}% • Reste ${remainingMWAL.toFixed(8)} MWAL`;
+
+  document.getElementById(&quot;txCount&quot;).textContent = String(history.length);
+}
+function updateHistoryTable(){
+  const tbody = document.getElementById(&quot;historyBody&quot;);
+  tbody.innerHTML = &quot;&quot;;
+  if(!history || history.length === 0){
+    tbody.innerHTML = `&lt;tr&gt;&lt;td colspan=&quot;7&quot; style=&quot;text-align:center;opacity:0.6;&quot;&gt;Aucune transaction.&lt;/td&gt;&lt;/tr&gt;`;
+    return;
+  }
+  history.slice().sort((a,b)=&gt; new Date(b.date)-new Date(a.date)).forEach(tx=&gt;{
+    const tr = document.createElement(&quot;tr&quot;);
+    tr.innerHTML = `
+      &lt;td&gt;${formatDate(tx.date)}&lt;/td&gt;
+      &lt;td&gt;${tx.type || &quot;-&quot;}&lt;/td&gt;
+      &lt;td&gt;${tx.txId || &quot;-&quot;}&lt;/td&gt;
+      &lt;td&gt;${tx.fromId || &quot;-&quot;}&lt;/td&gt;
+      &lt;td&gt;${tx.toId || &quot;-&quot;}&lt;/td&gt;
+      &lt;td&gt;${Number(tx.amount||0).toFixed(8)}&lt;/td&gt;
+      &lt;td&gt;${tx.note || &quot;&quot;}&lt;/td&gt;
+    `;
+    tbody.appendChild(tr);
+  });
+}
+function updateWalletView(){
+  document.getElementById(&quot;walletId&quot;).value = myWalletId;
+  document.getElementById(&quot;walletName&quot;).value = myWalletName;
+  safeQR(document.getElementById(&quot;qrWallet&quot;), myWalletId, 96);
+
+  const box = document.getElementById(&quot;activationBox&quot;);
+  if(!isProtocolActive()){
+    box.style.display = &quot;block&quot;;
+    box.innerHTML = GENESIS_DATE_MS
+      ? `⏳ Protocole non activé. Transactions refusées avant : &lt;strong&gt;${new Date(GENESIS_DATE_MS).toLocaleString(&quot;fr-FR&quot;)}&lt;/strong&gt;`
+      : &quot;⏳ Protocole non activé.&quot;;
+  }else box.style.display = &quot;none&quot;;
+
+  updateBalances();
+  updateHistoryTable();
+  publishStatsDebounced();
+}
+
+/* =======================
+   8) RECEIVE
+======================= */
+function parsePlain(plain){
+  const get = (re) =&gt; (plain.match(re) || [])[1] || null;
+  return {
+    txId: get(/TX=([^|]+)/),
+    fromId: get(/FROM=([^|]+)/),
+    fromName: get(/FROM_NAME=([^|]+)/),
+    toId: get(/TO=([^|]+)/),
+    amountStr: get(/AMOUNT=([0-9]*\.?[0-9]+)/),
+    sig: get(/SIG=([^|]+)/),
+    note: get(/LABEL=([^|]+)/)
+  };
+}
+
+function receiveProcess(key, cipher){
+  const recvStatusEl = document.getElementById(&quot;recvStatus&quot;);
+  recvStatusEl.textContent = &quot;&quot;;
+  document.getElementById(&quot;decodedPlain&quot;).value = &quot;&quot;;
+
+  if(!isProtocolActive()){
+    recvStatusEl.textContent = &quot;⏳ Protocole non activé : réception refusée avant la date GENESIS.&quot;;
+    return false;
+  }
+  if(!key || !cipher){
+    recvStatusEl.textContent = &quot;❌ Clé et code requis.&quot;;
+    return false;
+  }
+  if(!key.startsWith(&quot;MWAL-&quot;)){
+    recvStatusEl.textContent = &quot;❌ Clé MWAL invalide.&quot;;
+    return false;
+  }
+
+  applyKeyToAlphabet(key);
+  const plain = decodeString(cipher);
+  document.getElementById(&quot;decodedPlain&quot;).value = plain;
+
+  const p = parsePlain(plain);
+  if(!p.amountStr || !p.toId || !p.fromId || !p.txId || !p.sig){
+    recvStatusEl.textContent = &quot;⚠️ Message incomplet ou non signé.&quot;;
+    return false;
+  }
+  if(p.toId !== myWalletId){
+    recvStatusEl.textContent = `⚠️ Code destiné à ${p.toId}, pas à ce wallet (${myWalletId}).`;
+    return false;
+  }
+  if(processedTxs.includes(p.txId)){
+    recvStatusEl.textContent = &quot;❌ Transaction déjà encaissée (rejeu bloqué).&quot;;
+    return false;
+  }
+
+  let amount = round8(parseFloat(p.amountStr));
+  if(!Number.isFinite(amount) || amount &lt;= 0){
+    recvStatusEl.textContent = &quot;⚠️ Montant invalide.&quot;;
+    return false;
+  }
+  const amountFixed = amount.toFixed(8);
+  const expectedSig = computeSignature(p.fromId, amountFixed, p.txId);
+  if(p.sig !== expectedSig){
+    recvStatusEl.textContent = &quot;❌ Signature MWAL invalide – paiement refusé.&quot;;
+    return false;
+  }
+
+  const st = getState();
+  st.balance = round8(st.balance + amount);
+  setState(st);
+
+  processedTxs.push(p.txId);
+  saveToStorage(STORAGE_KEYS.PROCESSED, processedTxs);
+
+  addHistory({
+    type: &quot;RECEIVE&quot;,
+    txId: p.txId,
+    fromId: p.fromName ? `${p.fromName} (${p.fromId})` : p.fromId,
+    toId: myWalletName ? `${myWalletName} (${myWalletId})` : myWalletId,
+    amount,
+    date: new Date().toISOString(),
+    note: p.note || &quot;&quot;
+  });
+
+  updateWalletView();
+  recvStatusEl.textContent = &quot;✅ Encaissement OK (signature valide).&quot;;
+  return true;
+}
+
+document.getElementById(&quot;btnReceive&quot;).onclick = () =&gt; {
+  try{
+    const key = document.getElementById(&quot;recvKey&quot;).value.trim();
+    const cipher = document.getElementById(&quot;recvCode&quot;).value.trim();
+    receiveProcess(key, cipher);
+  }catch(e){
+    console.error(e);
+    document.getElementById(&quot;recvStatus&quot;).textContent = &quot;❌ Erreur lors du décodage / encaissement : &quot; + e.message;
+  }
+};
+
+document.getElementById(&quot;btnClearRecv&quot;).onclick = () =&gt; {
+  document.getElementById(&quot;recvKey&quot;).value = &quot;&quot;;
+  document.getElementById(&quot;recvCode&quot;).value = &quot;&quot;;
+  document.getElementById(&quot;decodedPlain&quot;).value = &quot;&quot;;
+  document.getElementById(&quot;recvStatus&quot;).textContent = &quot;&quot;;
+};
+
+/* =======================
+   9) POCT
+======================= */
+let lastPoct = null;
+
+function parsePoctText(txt){
+  const parts = (txt || &quot;&quot;).trim().split(&quot;|&quot;).filter(Boolean);
+  if(parts.length &lt; 3) return null;
+  if(parts[0] !== &quot;MWAL&quot; || parts[1] !== &quot;POCT&quot;) return null;
+
+  const kv = {};
+  for(let i=2;i&lt;parts.length;i++){
+    const seg = parts[i];
+    const idx = seg.indexOf(&quot;=&quot;);
+    if(idx === -1) continue;
+    kv[seg.slice(0, idx).trim()] = seg.slice(idx+1).trim();
+  }
+
+  const mode = kv.MODE || &quot;official&quot;;
+  const block = Number(kv.BLOCK);
+  const ts = Number(kv.TS);
+  const hash = (kv.HASH || &quot;&quot;).toLowerCase();
+  const salt = kv.SALT || &quot;&quot;;
+  const to = (kv.TO || &quot;&quot;).trim();
+
+  if(!Number.isFinite(block) || block &lt; 0) return null;
+  if(!Number.isFinite(ts) || ts &lt;= 0) return null;
+  if(!hash || hash.length &lt; 16) return null;
+
+  return {mode, block, ts, hash, salt, to};
+}
+
+function setPoctUiEmpty(){
+  document.getElementById(&quot;poctMode&quot;).textContent = &quot;MODE: —&quot;;
+  document.getElementById(&quot;poctBlock&quot;).textContent = &quot;BLOC: —&quot;;
+  document.getElementById(&quot;poctTs&quot;).textContent = &quot;TS: —&quot;;
+  document.getElementById(&quot;poctTo&quot;).textContent = &quot;TO: —&quot;;
+  document.getElementById(&quot;poctHashIn&quot;).value = &quot;&quot;;
+  document.getElementById(&quot;poctHashCalc&quot;).value = &quot;&quot;;
+  document.getElementById(&quot;poctStatus&quot;).textContent = &quot;—&quot;;
+  lastPoct = null;
+}
+function setPoctStatus(msg){ document.getElementById(&quot;poctStatus&quot;).textContent = msg; }
+
+document.getElementById(&quot;btnPoctClear&quot;).onclick = () =&gt; {
+  document.getElementById(&quot;poctText&quot;).value = &quot;&quot;;
+  setPoctUiEmpty();
+};
+
+document.getElementById(&quot;btnPoctDecode&quot;).onclick = async () =&gt; {
+  const txt = document.getElementById(&quot;poctText&quot;).value;
+  setPoctUiEmpty();
+
+  if(!txt.trim()){ setPoctStatus(&quot;❌ Colle le texte du QR PoCT.&quot;); return; }
+
+  const p = parsePoctText(txt);
+  if(!p){ setPoctStatus(&quot;❌ Format PoCT invalide.&quot;); return; }
+
+  document.getElementById(&quot;poctMode&quot;).textContent = `MODE: ${p.mode}`;
+  document.getElementById(&quot;poctBlock&quot;).textContent = `BLOC: ${p.block.toLocaleString(&quot;fr-FR&quot;)}`;
+  document.getElementById(&quot;poctTs&quot;).textContent = `TS: ${new Date(p.ts).toLocaleString(&quot;fr-FR&quot;)}`;
+  document.getElementById(&quot;poctTo&quot;).textContent = `TO: ${p.to || &quot;—&quot;}`;
+  document.getElementById(&quot;poctHashIn&quot;).value = p.hash;
+
+  if(!p.to){ setPoctStatus(&quot;❌ QR PoCT sans TO : refusé.&quot;); lastPoct = {...p, ok:false, hashCalc:&quot;&quot;}; return; }
+  if(p.to !== myWalletId){ setPoctStatus(`❌ TO invalide : destiné à ${p.to}, pas à ${myWalletId}.`); lastPoct = {...p, ok:false, hashCalc:&quot;&quot;}; return; }
+  if(!POCT.ACCEPT_MODES.has(p.mode)){ setPoctStatus(`❌ Mode refusé (${p.mode}).`); lastPoct = {...p, ok:false, hashCalc:&quot;&quot;}; return; }
+
+  const expectedTs = POCT.GENESIS_MS + (p.block * POCT.BLOCK_INTERVAL_MS);
+  if(p.ts !== expectedTs){ setPoctStatus(&quot;❌ Timestamp invalide pour ce bloc.&quot;); lastPoct = {...p, ok:false, hashCalc:&quot;&quot;}; return; }
+  if(p.block &gt;= POCT.BLOCKS_TOTAL){ setPoctStatus(&quot;❌ Bloc hors plage.&quot;); lastPoct = {...p, ok:false, hashCalc:&quot;&quot;}; return; }
+
+  const hashCalc = await computePoctHash(p.block, p.salt);
+  document.getElementById(&quot;poctHashCalc&quot;).value = hashCalc;
+
+  const ok = (hashCalc.toLowerCase() === p.hash.toLowerCase());
+  lastPoct = {...p, ok, hashCalc};
+
+  if(!ok){ setPoctStatus(&quot;❌ Hash invalide : recalcul différent.&quot;); return; }
+  if(claimedPoct.has(p.block)){ setPoctStatus(&quot;⚠️ Bloc déjà encaissé dans ce wallet.&quot;); return; }
+
+  setPoctStatus(`✅ PoCT valide. Récompense : ${round8(POCT.REWARD_PER_BLOCK).toFixed(8)} MWAL (bloc #${p.block}).`);
+};
+
+document.getElementById(&quot;btnPoctClaim&quot;).onclick = () =&gt; {
+  if(!isProtocolActive()){ setPoctStatus(&quot;⏳ Protocole non activé : encaissement refusé.&quot;); return; }
+  if(!lastPoct){ setPoctStatus(&quot;❌ D&#x27;abord : Décoder / Vérifier le QR PoCT.&quot;); return; }
+  if(!lastPoct.ok){ setPoctStatus(&quot;❌ PoCT non valide. Encaissement refusé.&quot;); return; }
+  if(claimedPoct.has(lastPoct.block)){ setPoctStatus(&quot;❌ Ce bloc est déjà encaissé dans ce wallet.&quot;); return; }
+
+  const amount = round8(POCT.REWARD_PER_BLOCK);
+  const st = getState();
+  st.balance = round8(st.balance + amount);
+  setState(st);
+
+  claimedPoct.add(lastPoct.block);
+  saveClaimedPoct();
+
+  const txId = `POCT-${lastPoct.mode}-B${lastPoct.block}-${(lastPoct.hash || &quot;&quot;).slice(0,10)}`;
+  addHistory({
+    type: &quot;POCT&quot;,
+    txId,
+    fromId: POCT.FROM_ID,
+    toId: myWalletName ? `${myWalletName} (${myWalletId})` : myWalletId,
+    amount,
+    date: new Date().toISOString(),
+    note: `Bloc #${lastPoct.block} • hash OK`
+  });
+
+  updateWalletView();
+  setPoctStatus(`🎉 Récompense encaissée : +${amount.toFixed(8)} MWAL (bloc #${lastPoct.block}).`);
+};
+
+/* =======================
+   10) SEND
+======================= */
+document.getElementById(&quot;btnSend&quot;).onclick = () =&gt; {
+  const status = document.getElementById(&quot;sendStatus&quot;);
+  status.textContent = &quot;&quot;;
+  document.getElementById(&quot;sendOut&quot;).style.display = &quot;none&quot;;
+
+  if(!isProtocolActive()){ status.textContent = &quot;⏳ Protocole non activé : envoi refusé.&quot;; return; }
+
+  const toWallet = document.getElementById(&quot;sendTo&quot;).value.trim();
+  if(!toWallet){ status.textContent = &quot;❌ Veuillez saisir l&#x27;ID du wallet destinataire.&quot;; return; }
+
+  let amount = parseFloat((document.getElementById(&quot;sendAmount&quot;).value || &quot;0&quot;).replace(&quot;,&quot;, &quot;.&quot;));
+  if(!Number.isFinite(amount) || amount &lt;= 0){ status.textContent = &quot;❌ Montant invalide.&quot;; return; }
+  amount = round8(amount);
+  const amountStr = amount.toFixed(8);
+
+  const note = (document.getElementById(&quot;sendLabel&quot;).value || &quot;&quot;).trim();
+
+  const st = getState();
+  if(st.balance &lt; amount){ status.textContent = `❌ Solde insuffisant. Solde: ${round8(st.balance).toFixed(8)} MWAL`; return; }
+
+  const txId = &quot;TX-&quot; + Date.now().toString(36);
+  const sig  = computeSignature(myWalletId, amountStr, txId);
+
+  const plain =
+    `TX=${txId}|FROM=${myWalletId}|FROM_NAME=${(myWalletName || &quot;WALLET&quot;)}|TO=${toWallet}|TO_NAME=WALLET|AMOUNT=${amountStr}|UNIT=MWAL` +
+    (note ? `|LABEL=${note}` : &quot;&quot;) +
+    `|SIG=${sig}`;
+
+  const key = generateKey();
+  applyKeyToAlphabet(key);
+  const cipher = encodeString(plain);
+
+  st.balance = round8(st.balance - amount);
+  setState(st);
+
+  addHistory({
+    type: &quot;SEND&quot;,
+    txId,
+    fromId: myWalletName ? `${myWalletName} (${myWalletId})` : myWalletId,
+    toId: toWallet,
+    amount,
+    date: new Date().toISOString(),
+    note
+  });
+
+  updateWalletView();
+
+  document.getElementById(&quot;outKey&quot;).value = key;
+  document.getElementById(&quot;outCode&quot;).value = cipher;
+  document.getElementById(&quot;sendOut&quot;).style.display = &quot;block&quot;;
+  status.textContent = &quot;✅ Code généré. Donnez la clé + le code au destinataire.&quot;;
+};
+
+/* =======================
+   11) SETTINGS / EXPORT / RESET
+======================= */
+document.getElementById(&quot;btnSaveName&quot;).onclick = () =&gt; {
+  myWalletName = document.getElementById(&quot;walletName&quot;).value.trim();
+  saveToStorage(STORAGE_KEYS.WALLET_NAME, myWalletName);
+  updateWalletView();
+  publishIndexAndProfile();
+  alert(&quot;✅ Nom sauvegardé&quot;);
+};
+
+document.getElementById(&quot;btnExportJson&quot;).onclick = () =&gt; {
+  const data = {
+    version: &quot;wallet-standard-poct+gun+auto-1.0&quot;,
+    exportDate: new Date().toISOString(),
+    walletId: myWalletId,
+    walletName: myWalletName,
+    state: getState(),
+    aggregates: computeAggregates(),
+    processedTxs,
+    history,
+    genesisDateISO: GENESIS_DATE_ISO || null,
+    gun: { peer: (document.getElementById(&quot;gunPeer&quot;).value || DEFAULT_GUN_PEER).trim(), namespace: NS },
+    auto: { autoReceiveOn: !!document.getElementById(&quot;autoReceiveOn&quot;).checked, autoPoctOn: !!document.getElementById(&quot;autoPoctOn&quot;).checked }
+  };
+  document.getElementById(&quot;exportArea&quot;).value = JSON.stringify(data, null, 2);
+};
+
+document.getElementById(&quot;btnReset&quot;).onclick = () =&gt; {
+  if(!confirm(&quot;⚠️ Réinitialiser le wallet ?\nSolde + historique + anti-rejeu seront effacés.&quot;)) return;
+
+  setState({balance:0});
+  processedTxs = [];
+  history = [];
+  claimedPoct = new Set();
+
+  saveToStorage(STORAGE_KEYS.PROCESSED, processedTxs);
+  saveToStorage(STORAGE_KEYS.HISTORY, history);
+  saveToStorage(STORAGE_KEYS.CLAIMED_POCT, []);
+
+  document.getElementById(&quot;exportArea&quot;).value = &quot;&quot;;
+  setPoctUiEmpty();
+  updateWalletView();
+
+  publishAll();
+  alert(&quot;✅ Wallet réinitialisé&quot;);
+};
+
+document.getElementById(&quot;btnGunConnect&quot;).onclick = () =&gt; {
+  saveToStorage(STORAGE_KEYS.GUN_PEER, (document.getElementById(&quot;gunPeer&quot;).value||DEFAULT_GUN_PEER).trim());
+  connectGun();
+};
+
+/* =======================
+   12) AUTO-ENCAISSEMENT
+======================= */
+let __autoRecvLock = false;
+let __autoPoctLock = false;
+
+function autoReceiveLoop(){
+  if(!document.getElementById(&quot;autoReceiveOn&quot;).checked) return;
+
+  const keyEl = document.getElementById(&quot;recvKey&quot;);
+  const codeEl = document.getElementById(&quot;recvCode&quot;);
+  const key = keyEl.value.trim();
+  const code = codeEl.value.trim();
+  if(!key || !code) return;
+
+  if(__autoRecvLock) return;
+  __autoRecvLock = true;
+
+  try{
+    const ok = receiveProcess(key, code);
+    if(ok){ keyEl.value = &quot;&quot;; codeEl.value = &quot;&quot;; }
+  }catch(e){ console.warn(&quot;AutoReceive skip:&quot;, e.message); }
+
+  setTimeout(()=&gt;{ __autoRecvLock = false; }, 900);
+}
+
+async function autoPoctLoop(){
+  if(!document.getElementById(&quot;autoPoctOn&quot;).checked) return;
+
+  const txtEl = document.getElementById(&quot;poctText&quot;);
+  const txt = txtEl.value.trim();
+  if(!txt) return;
+
+  if(__autoPoctLock) return;
+  __autoPoctLock = true;
+
+  try{
+    await document.getElementById(&quot;btnPoctDecode&quot;).onclick();
+    const status = document.getElementById(&quot;poctStatus&quot;).textContent || &quot;&quot;;
+    if(status.includes(&quot;PoCT valide&quot;)){
+      document.getElementById(&quot;btnPoctClaim&quot;).click();
+      txtEl.value = &quot;&quot;;
+    }
+  }catch(e){ console.warn(&quot;AutoPoCT skip:&quot;, e.message); }
+
+  setTimeout(()=&gt;{ __autoPoctLock = false; }, 1200);
+}
+
+/* =======================
+   13) INIT
+======================= */
+function initWallet(){
+  myWalletId = loadFromStorage(STORAGE_KEYS.WALLET_ID);
+  if(!myWalletId){
+    myWalletId = generateWalletId();
+    saveToStorage(STORAGE_KEYS.WALLET_ID, myWalletId);
+  }
+  myWalletName = loadFromStorage(STORAGE_KEYS.WALLET_NAME, &quot;&quot;);
+  processedTxs = loadFromStorage(STORAGE_KEYS.PROCESSED, []);
+  history = loadFromStorage(STORAGE_KEYS.HISTORY, []) || [];
+
+  const claimedArr = loadFromStorage(STORAGE_KEYS.CLAIMED_POCT, []);
+  claimedPoct = new Set((claimedArr || []).map(Number).filter(Number.isFinite));
+
+  const peer = loadFromStorage(STORAGE_KEYS.GUN_PEER, DEFAULT_GUN_PEER) || DEFAULT_GUN_PEER;
+  document.getElementById(&quot;gunPeer&quot;).value = peer;
+
+  const autoRecv = !!loadFromStorage(STORAGE_KEYS.AUTO_RECV, true);
+  const autoPoct = !!loadFromStorage(STORAGE_KEYS.AUTO_POCT, true);
+  document.getElementById(&quot;autoReceiveOn&quot;).checked = autoRecv;
+  document.getElementById(&quot;autoPoctOn&quot;).checked = autoPoct;
+
+  document.getElementById(&quot;autoReceiveOn&quot;).addEventListener(&quot;change&quot;, (e)=&gt;{
+    saveToStorage(STORAGE_KEYS.AUTO_RECV, !!e.target.checked);
+  });
+  document.getElementById(&quot;autoPoctOn&quot;).addEventListener(&quot;change&quot;, (e)=&gt;{
+    saveToStorage(STORAGE_KEYS.AUTO_POCT, !!e.target.checked);
+  });
+
+  updateWalletView();
+  setPoctUiEmpty();
+  connectGun();
+}
+
+// présence + stats
+setInterval(()=&gt;{ if(net) publishStats(); }, 10000);
+// boucles auto
+setInterval(autoReceiveLoop, 900);
+setInterval(()=&gt;{ autoPoctLoop(); }, 1300);
+
+initWallet();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+  </section>
+
+  <section class="view" id="vExpert">
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+        <div>
+          <div style="font-weight:800">Mode expert</div>
+          <div class="sub">Blockchain complète + minage. Synchronisée via Gun (blocs + head + outputs) + publication du cours public.</div>
+        </div>
+        <label class="pill" style="cursor:pointer">
+          <input type="checkbox" id="expertOn" style="width:auto;margin:0"/>
+          Afficher la blockchain
+        </label>
+      </div>
+    </div>
+    <div id="expertWrap" style="display:none">
+      <iframe id="chainFrame" sandbox="allow-scripts allow-forms allow-same-origin" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;fr&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;utf-8&quot; /&gt;
+  &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot; /&gt;
+  &lt;title&gt;MWAL — Blockchain OFFLINE (Manuel JSON • Mining • Blocs • Sorties)&lt;/title&gt;
+  &lt;!-- GUN (diffusion publique du cours uniquement) --&gt;
+  &lt;script src=&quot;https://cdn.jsdelivr.net/npm/gun/gun.js&quot;&gt;&lt;/script&gt;
+  &lt;script src=&quot;https://cdn.jsdelivr.net/npm/gun/axe.js&quot;&gt;&lt;/script&gt;
+
+  &lt;style&gt;
+    :root{
+      --bg:#070b16; --card:#0f1730; --text:#e9eeff; --muted:rgba(233,238,255,.72);
+      --border:rgba(255,255,255,.14); --shadow:0 18px 60px rgba(0,0,0,.45);
+      --up:#62f6b5; --down:#ff6b6b; --warn:#ffd34d; --cyan:#6ee7ff;
+      --r:20px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+      background:
+        radial-gradient(1100px 900px at 10% -20%, rgba(110,231,255,.18), transparent 55%),
+        radial-gradient(900px 800px at 90% 0%, rgba(98,246,181,.14), transparent 60%),
+        var(--bg);
+      color:var(--text);
+    }
+    header{max-width:1280px;margin:0 auto;padding:22px 18px 10px}
+    h1{margin:0 0 10px;font-size:22px;letter-spacing:.2px}
+    .sub{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    main{max-width:1280px;margin:0 auto;padding:12px 18px 44px}
+    .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}
+    @media(max-width:980px){.grid{grid-template-columns:1fr}}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03));
+      border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:14px}
+    .card h2{margin:0 0 10px;font-size:14px}
+    .pill{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;
+      border:1px solid var(--border);background:rgba(0,0,0,.18);font-size:12px;color:rgba(233,238,255,.92)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,&quot;Liberation Mono&quot;,&quot;Courier New&quot;,monospace;font-size:12px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .col{flex:1;min-width:240px}
+    label{display:block;font-size:12px;color:rgba(233,238,255,.78);margin:0 0 6px}
+    input,select,textarea{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);
+      background:rgba(0,0,0,.25);color:var(--text);outline:none}
+    textarea{resize:vertical}
+    input:focus,select:focus,textarea:focus{border-color:rgba(110,231,255,.65); box-shadow:0 0 0 3px rgba(110,231,255,.12)}
+    button{padding:10px 12px;border-radius:12px;border:1px solid var(--border);
+      background:rgba(110,231,255,.10);color:var(--text);cursor:pointer}
+    button:hover{background:rgba(110,231,255,.16)}
+    button.primary{background:rgba(98,246,181,.14)}
+    button.primary:hover{background:rgba(98,246,181,.20)}
+    button.danger{background:rgba(255,107,107,.14)}
+    button.danger:hover{background:rgba(255,107,107,.20)}
+    button.warn{background:rgba(255,211,77,.14)}
+    button.warn:hover{background:rgba(255,211,77,.20)}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .btnbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th,td{padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+    th{text-align:left;color:rgba(233,238,255,.80);font-weight:600}
+    .right{text-align:right}
+    .hash{max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .tag{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid var(--border);
+      background:rgba(0,0,0,.18);font-size:11px;color:rgba(233,238,255,.86)}
+    canvas{width:100%;height:360px;display:block;border:1px solid var(--border);border-radius:14px;background:rgba(0,0,0,.14)}
+    details summary{cursor:pointer;color:rgba(233,238,255,.88)}
+    .tiny{font-size:11px;color:rgba(233,238,255,.72);line-height:1.5}
+    .ok{border-color:rgba(98,246,181,.45)}
+    .bad{border-color:rgba(255,107,107,.45)}
+    .warnb{border-color:rgba(255,211,77,.45)}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:980px){.split{grid-template-columns:1fr}}
+    .kbd{padding:2px 6px;border-radius:8px;border:1px solid var(--border);background:rgba(0,0,0,.22);font-size:11px}
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;header&gt;
+  &lt;h1&gt;MWAL — Blockchain OFFLINE (Copier/Coller JSON • Mining PoW • Blocs • Sorties)&lt;/h1&gt;
+  &lt;p class=&quot;sub&quot;&gt;
+    Cette application est une &lt;b&gt;blockchain témoin&lt;/b&gt; utilisable &lt;b&gt;sans Internet&lt;/b&gt;.
+    Elle fonctionne comme une “super-caisse” : tu &lt;b&gt;importes&lt;/b&gt; un dépôt JSON (copier/coller),
+    tu &lt;b&gt;mines&lt;/b&gt; le dépôt (preuve de travail), la blockchain crée un &lt;b&gt;bloc&lt;/b&gt;,
+    puis elle génère une &lt;b&gt;sortie JSON&lt;/b&gt; à renvoyer manuellement (copier/coller) à la caisse ou au wallet destinataire.
+  &lt;/p&gt;
+&lt;/header&gt;
+
+&lt;main&gt;
+  &lt;div class=&quot;row&quot; style=&quot;margin-bottom:12px&quot;&gt;
+    &lt;span class=&quot;pill&quot;&gt;Mode: &lt;b&gt;100% OFFLINE • Manuel&lt;/b&gt;&lt;/span&gt;
+    &lt;span class=&quot;pill&quot;&gt;Décimales: &lt;b&gt;20 chiffres après virgule&lt;/b&gt;&lt;/span&gt;
+    &lt;span class=&quot;pill&quot;&gt;Stockage: &lt;b&gt;localStorage&lt;/b&gt;&lt;/span&gt;
+    &lt;span class=&quot;pill&quot;&gt;Protocole: &lt;span class=&quot;mono&quot;&gt;MWAL_CHAIN_DEPOSIT_V1&lt;/span&gt; → &lt;span class=&quot;mono&quot;&gt;MWAL_CHAIN_BLOCK_V1&lt;/span&gt; → &lt;span class=&quot;mono&quot;&gt;MWAL_CHAIN_OUTPUT_V1&lt;/span&gt;&lt;/span&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;grid&quot;&gt;
+    &lt;section class=&quot;card&quot;&gt;
+      &lt;h2&gt;1) Réception Blockchain (Importer un dépôt JSON)&lt;/h2&gt;
+      &lt;p class=&quot;tiny&quot;&gt;
+        Colle ici un dépôt JSON provenant d&#x27;une &lt;b&gt;caisse&lt;/b&gt; ou d&#x27;un &lt;b&gt;wallet&lt;/b&gt;. Le dépôt doit contenir un
+        &lt;b&gt;libellé (bien/service) obligatoire&lt;/b&gt;. Sans libellé, la blockchain refuse (pas de valorisation).
+      &lt;/p&gt;
+
+      &lt;div class=&quot;split&quot; style=&quot;margin-top:10px&quot;&gt;
+        &lt;div&gt;
+          &lt;label&gt;Dépôt JSON (copier/coller)&lt;/label&gt;
+          &lt;textarea id=&quot;depositIn&quot; rows=&quot;14&quot; class=&quot;mono&quot; placeholder=&#x27;Colle ici: {&quot;protocol&quot;:&quot;MWAL_CHAIN_DEPOSIT_V1&quot;,...}&#x27;&gt;&lt;/textarea&gt;
+          &lt;div class=&quot;btnbar&quot;&gt;
+            &lt;button class=&quot;primary&quot; id=&quot;btnImport&quot;&gt;Vérifier &amp; Importer&lt;/button&gt;
+            &lt;button id=&quot;btnExample&quot;&gt;Coller un exemple&lt;/button&gt;
+            &lt;button class=&quot;warn&quot; id=&quot;btnClearIn&quot;&gt;Effacer&lt;/button&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div&gt;
+          &lt;label&gt;Résultat de validation&lt;/label&gt;
+          &lt;div id=&quot;validateBox&quot; class=&quot;pill warnb&quot; style=&quot;display:block;border-radius:14px;line-height:1.5&quot;&gt;
+            En attente d&#x27;un dépôt JSON…
+          &lt;/div&gt;
+
+          &lt;details style=&quot;margin-top:12px&quot;&gt;
+            &lt;summary&gt;Schéma d&#x27;un dépôt accepté&lt;/summary&gt;
+            &lt;div class=&quot;tiny&quot; style=&quot;margin-top:10px&quot;&gt;
+              &lt;div class=&quot;pill&quot;&gt;Wrapper (obligatoire)&lt;/div&gt;
+              &lt;pre class=&quot;mono&quot; style=&quot;white-space:pre-wrap;margin:8px 0 0;background:rgba(0,0,0,.25);padding:10px;border-radius:12px;border:1px solid var(--border)&quot;&gt;{
+  &quot;protocol&quot;:&quot;MWAL_CHAIN_DEPOSIT_V1&quot;,
+  &quot;depositId&quot;:&quot;DEP-...&quot;,
+  &quot;origin&quot;:&quot;CAISSE|WALLET&quot;,
+  &quot;receivedAt&quot;:1730000000000,
+  &quot;payload&quot;: { ... JSON original caisse/wallet ... }
+}&lt;/pre&gt;
+              &lt;div class=&quot;pill&quot; style=&quot;margin-top:10px&quot;&gt;Règles métier (minimales)&lt;/div&gt;
+              &lt;ul class=&quot;tiny&quot; style=&quot;margin:8px 0 0&quot;&gt;
+                &lt;li&gt;&lt;b&gt;Libellé obligatoire&lt;/b&gt; : trouvé dans &lt;span class=&quot;mono&quot;&gt;payload.label&lt;/span&gt; ou &lt;span class=&quot;mono&quot;&gt;payload.meta.label&lt;/span&gt; ou &lt;span class=&quot;mono&quot;&gt;payload.proof.label&lt;/span&gt;.&lt;/li&gt;
+                &lt;li&gt;Actif: MWAL ou MWOLLOWM (sinon MWAL par défaut).&lt;/li&gt;
+                &lt;li&gt;Montant: chaîne numérique, jusqu&#x27;à 20 décimales.&lt;/li&gt;
+                &lt;li&gt;Destinataire final: trouvé dans &lt;span class=&quot;mono&quot;&gt;payload.finalTo&lt;/span&gt; ou &lt;span class=&quot;mono&quot;&gt;payload.to&lt;/span&gt; (ou chemins proof).&lt;/li&gt;
+              &lt;/ul&gt;
+            &lt;/div&gt;
+          &lt;/details&gt;
+
+          &lt;details style=&quot;margin-top:12px&quot;&gt;
+            &lt;summary&gt;Pourquoi “€” est demandé au minage ?&lt;/summary&gt;
+            &lt;div class=&quot;tiny&quot; style=&quot;margin-top:10px&quot;&gt;
+              Ton système valorise par &lt;b&gt;biens &amp; services&lt;/b&gt;. Offline, l&#x27;opérateur (témoin) peut saisir
+              le montant en euros associé au libellé (ex: “réparation vélo = 25€”).
+              Le cours est alors: &lt;span class=&quot;mono&quot;&gt;rate = eur / amount&lt;/span&gt;.
+            &lt;/div&gt;
+          &lt;/details&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;hr style=&quot;border:0;border-top:1px solid var(--border);margin:16px 0&quot;/&gt;
+
+      &lt;h2&gt;2) File des dépôts (en attente / traités)&lt;/h2&gt;
+      &lt;div class=&quot;row&quot; style=&quot;margin-bottom:10px&quot;&gt;
+        &lt;span class=&quot;pill&quot;&gt;Dépôts en attente: &lt;b id=&quot;pendingCount&quot;&gt;0&lt;/b&gt;&lt;/span&gt;
+        &lt;span class=&quot;pill&quot;&gt;Dépôts traités: &lt;b id=&quot;doneCount&quot;&gt;0&lt;/b&gt;&lt;/span&gt;
+        &lt;span class=&quot;pill&quot;&gt;Sélection: &lt;span class=&quot;mono&quot; id=&quot;selDeposit&quot;&gt;—&lt;/span&gt;&lt;/span&gt;
+      &lt;/div&gt;
+
+      &lt;div style=&quot;overflow:auto&quot;&gt;
+        &lt;table&gt;
+          &lt;thead&gt;
+            &lt;tr&gt;
+              &lt;th&gt;Dépôt&lt;/th&gt;
+              &lt;th&gt;Origine&lt;/th&gt;
+              &lt;th&gt;Actif&lt;/th&gt;
+              &lt;th class=&quot;right&quot;&gt;Montant&lt;/th&gt;
+              &lt;th&gt;Libellé&lt;/th&gt;
+              &lt;th&gt;Destinataire&lt;/th&gt;
+              &lt;th&gt;Statut&lt;/th&gt;
+              &lt;th&gt;&lt;/th&gt;
+            &lt;/tr&gt;
+          &lt;/thead&gt;
+          &lt;tbody id=&quot;depBody&quot;&gt;&lt;/tbody&gt;
+        &lt;/table&gt;
+      &lt;/div&gt;
+
+      &lt;hr style=&quot;border:0;border-top:1px solid var(--border);margin:16px 0&quot;/&gt;
+
+      &lt;h2&gt;3) Minage Blockchain (preuve de travail)&lt;/h2&gt;
+      &lt;p class=&quot;tiny&quot;&gt;
+        Miner = transformer un dépôt en bloc. Une fois miné, la blockchain génère automatiquement une &lt;b&gt;sortie JSON&lt;/b&gt; (à envoyer manuellement).
+        Les boutons de minage restent &lt;b&gt;manuels&lt;/b&gt;. Le minage est “slicé” pour ne pas bloquer la page.
+      &lt;/p&gt;
+
+      &lt;div class=&quot;row&quot;&gt;
+        &lt;div class=&quot;col&quot;&gt;
+          &lt;label&gt;Difficulté (zéros en hex)&lt;/label&gt;
+          &lt;input id=&quot;diff&quot; type=&quot;number&quot; min=&quot;1&quot; max=&quot;8&quot; value=&quot;4&quot;/&gt;
+          &lt;div class=&quot;tiny&quot;&gt;Ex: 4 = hash commence par &lt;span class=&quot;mono&quot;&gt;0000&lt;/span&gt;.&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;col&quot;&gt;
+          &lt;label&gt;Tranche CPU (ms)&lt;/label&gt;
+          &lt;input id=&quot;slice&quot; type=&quot;number&quot; min=&quot;20&quot; max=&quot;500&quot; value=&quot;80&quot;/&gt;
+          &lt;div class=&quot;tiny&quot;&gt;Recommandé: 60–120.&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;row&quot; style=&quot;margin-top:10px&quot;&gt;
+        &lt;div class=&quot;col&quot;&gt;
+          &lt;label&gt;€ associé au libellé (obligatoire pour valorisation)&lt;/label&gt;
+          &lt;input id=&quot;eurInput&quot; type=&quot;text&quot; class=&quot;mono&quot; placeholder=&quot;ex: 25.00000000000000000000&quot;/&gt;
+          &lt;div class=&quot;tiny&quot;&gt;Vide/0 = bloc TRANSFER (sans cours). &gt;0 = bloc EXCHANGE (avec cours).&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;col&quot;&gt;
+          &lt;label&gt;Note témoin (optionnel)&lt;/label&gt;
+          &lt;input id=&quot;witnessNote&quot; type=&quot;text&quot; placeholder=&quot;ex: facture, référence...&quot;/&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;btnbar&quot;&gt;
+        &lt;button class=&quot;primary&quot; id=&quot;btnMine&quot;&gt;⛏️ Miner le dépôt sélectionné&lt;/button&gt;
+        &lt;button class=&quot;danger&quot; id=&quot;btnStop&quot; disabled&gt;Stop&lt;/button&gt;
+        &lt;button class=&quot;warn&quot; id=&quot;btnResetChain&quot;&gt;Réinitialiser la blockchain (local)&lt;/button&gt;
+        &lt;button id=&quot;btnExportAll&quot;&gt;Exporter tout (backup JSON)&lt;/button&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;row&quot; style=&quot;margin-top:10px&quot;&gt;
+        &lt;span class=&quot;pill&quot;&gt;Hashrate: &lt;b id=&quot;hr&quot;&gt;0&lt;/b&gt; H/s&lt;/span&gt;
+        &lt;span class=&quot;pill&quot;&gt;Nonce: &lt;span class=&quot;mono&quot; id=&quot;nonce&quot;&gt;—&lt;/span&gt;&lt;/span&gt;
+        &lt;span class=&quot;pill&quot;&gt;Hash: &lt;span class=&quot;mono hash&quot; id=&quot;hash&quot;&gt;—&lt;/span&gt;&lt;/span&gt;
+        &lt;span class=&quot;pill&quot;&gt;Bloc: &lt;span class=&quot;mono&quot; id=&quot;miningBlk&quot;&gt;—&lt;/span&gt;&lt;/span&gt;
+      &lt;/div&gt;
+
+      &lt;div id=&quot;mineStatus&quot; class=&quot;pill warnb&quot; style=&quot;display:block;border-radius:14px;line-height:1.5;margin-top:10px&quot;&gt;
+        En attente…
+      &lt;/div&gt;
+    &lt;/section&gt;
+
+    &lt;section class=&quot;card&quot;&gt;
+      &lt;h2&gt;Dashboard OFFLINE — Cours (MWAL/MWOLLOWM en €) + Blocs + Sorties&lt;/h2&gt;
+
+      &lt;div class=&quot;row&quot; style=&quot;margin-bottom:10px&quot;&gt;
+        &lt;span class=&quot;pill&quot;&gt;Actif:
+          &lt;select id=&quot;assetSel&quot; style=&quot;padding:6px 10px;border-radius:999px&quot;&gt;
+            &lt;option value=&quot;MWAL&quot; selected&gt;MWAL&lt;/option&gt;
+            &lt;option value=&quot;MWOLLOWM&quot;&gt;MWOLLOWM&lt;/option&gt;
+          &lt;/select&gt;
+        &lt;/span&gt;
+        &lt;span class=&quot;pill&quot;&gt;Cours actuel: &lt;b id=&quot;curRate&quot;&gt;—&lt;/b&gt;&lt;/span&gt;
+        &lt;span class=&quot;pill&quot;&gt;Publication: &lt;b id=&quot;pubStatus&quot;&gt;—&lt;/b&gt;&lt;/span&gt;
+        &lt;span class=&quot;pill&quot;&gt;Points: &lt;b id=&quot;ptCount&quot;&gt;0&lt;/b&gt;&lt;/span&gt;
+      &lt;/div&gt;
+
+      &lt;canvas id=&quot;chart&quot; width=&quot;1200&quot; height=&quot;360&quot;&gt;&lt;/canvas&gt;
+
+      &lt;hr style=&quot;border:0;border-top:1px solid var(--border);margin:16px 0&quot;/&gt;
+
+      &lt;h2&gt;4) Blocs&lt;/h2&gt;
+      &lt;div style=&quot;overflow:auto;margin-top:10px&quot;&gt;
+        &lt;table&gt;
+          &lt;thead&gt;
+            &lt;tr&gt;
+              &lt;th&gt;#&lt;/th&gt;
+              &lt;th&gt;Type&lt;/th&gt;
+              &lt;th&gt;Actif&lt;/th&gt;
+              &lt;th class=&quot;right&quot;&gt;Montant&lt;/th&gt;
+              &lt;th class=&quot;right&quot;&gt;€&lt;/th&gt;
+              &lt;th class=&quot;right&quot;&gt;Rate&lt;/th&gt;
+              &lt;th&gt;Hash&lt;/th&gt;
+              &lt;th&gt;&lt;/th&gt;
+            &lt;/tr&gt;
+          &lt;/thead&gt;
+          &lt;tbody id=&quot;blkBody&quot;&gt;&lt;/tbody&gt;
+        &lt;/table&gt;
+      &lt;/div&gt;
+
+      &lt;hr style=&quot;border:0;border-top:1px solid var(--border);margin:16px 0&quot;/&gt;
+
+      &lt;h2&gt;5) Sorties (JSON à envoyer manuellement)&lt;/h2&gt;
+
+      &lt;div style=&quot;overflow:auto;margin-top:10px&quot;&gt;
+        &lt;table&gt;
+          &lt;thead&gt;
+            &lt;tr&gt;
+              &lt;th&gt;Out&lt;/th&gt;
+              &lt;th&gt;To&lt;/th&gt;
+              &lt;th&gt;Actif&lt;/th&gt;
+              &lt;th class=&quot;right&quot;&gt;Montant&lt;/th&gt;
+              &lt;th&gt;Ref bloc&lt;/th&gt;
+              &lt;th&gt;&lt;/th&gt;
+            &lt;/tr&gt;
+          &lt;/thead&gt;
+          &lt;tbody id=&quot;outBody&quot;&gt;&lt;/tbody&gt;
+        &lt;/table&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;card&quot; style=&quot;margin-top:12px;background:rgba(0,0,0,.12)&quot;&gt;
+        &lt;h2 style=&quot;margin-bottom:8px&quot;&gt;Export manuel (copier / fichier)&lt;/h2&gt;
+        &lt;label&gt;JSON sélectionné (sortie ou backup)&lt;/label&gt;
+        &lt;textarea id=&quot;exportBox&quot; rows=&quot;9&quot; class=&quot;mono&quot; placeholder=&quot;Clique “Copier sortie” ou “Exporter tout”…&quot;&gt;&lt;/textarea&gt;
+        &lt;div class=&quot;btnbar&quot;&gt;
+          &lt;button id=&quot;btnCopy&quot;&gt;Copier&lt;/button&gt;
+          &lt;button id=&quot;btnDownload&quot;&gt;Télécharger JSON&lt;/button&gt;
+          &lt;button class=&quot;warn&quot; id=&quot;btnClearExport&quot;&gt;Effacer&lt;/button&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;tiny&quot;&gt;Astuce : &lt;span class=&quot;kbd&quot;&gt;Ctrl&lt;/span&gt;+&lt;span class=&quot;kbd&quot;&gt;A&lt;/span&gt;, &lt;span class=&quot;kbd&quot;&gt;Ctrl&lt;/span&gt;+&lt;span class=&quot;kbd&quot;&gt;C&lt;/span&gt;.&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+  &lt;/div&gt;
+&lt;/main&gt;
+
+&lt;script&gt;
+(() =&gt; {
+  &#x27;use strict&#x27;;
+
+  // ============================================================
+  // Diffusion publique (GUN) — cours uniquement (lecture seule côté public)
+  // IMPORTANT: GUN ne sert PAS aux transactions.
+  // Si hors-ligne, file d’attente localStorage et retry.
+  // ============================================================
+  const DEFAULT_GUN_PEER = &#x27;https://gun-encaissement.onrender.com/gun&#x27;;
+  function readPeer(){
+    try{ const raw = localStorage.getItem(&#x27;mwal_gun_peer&#x27;); if(!raw) return DEFAULT_GUN_PEER; const v = JSON.parse(raw); return (v||DEFAULT_GUN_PEER); }catch(e){
+      const raw = localStorage.getItem(&#x27;mwal_gun_peer&#x27;); return raw ? raw.replace(/^\&quot;|\&quot;$/g,&#x27;&#x27;) : DEFAULT_GUN_PEER;
+    }
+  }
+  const GUN_PEERS = [readPeer()];
+  const PUBLIC_NODE = &#x27;MWAL_PUBLIC_COURSE_V1&#x27;;
+  const CHAIN_NODE = &#x27;MWAL_CHAIN_SYNC_V1&#x27;;
+
+  function publishChainHead(){
+    if(!gun) return;
+    try{ gun.get(CHAIN_NODE).get(&#x27;head&#x27;).put(head); }catch(e){}
+  }
+  function publishChainBlock(block){
+    if(!gun || !block || !block.hash) return;
+    try{ gun.get(CHAIN_NODE).get(&#x27;blocks&#x27;).get(block.hash).put(block); }catch(e){}
+  }
+  function publishChainOutput(out){
+    if(!gun) return;
+    const k = out?.outId || out?.id || out?.refBlock || String(out?.ts||Date.now());
+    try{ gun.get(CHAIN_NODE).get(&#x27;outputs&#x27;).get(k).put(out); }catch(e){}
+  }
+
+  const _seenRemoteBlocks = new Set();
+  const _seenRemoteOuts = new Set();
+
+  function mergeRemoteBlock(b){
+    if(!b || !b.hash) return;
+    if(_seenRemoteBlocks.has(b.hash)) return;
+    _seenRemoteBlocks.add(b.hash);
+    if(!blocks.some(x=&gt;x.hash===b.hash)){
+      blocks.push(b);
+      blocks.sort((a,c)=&gt; (a.height||0)-(c.height||0));
+      saveJSON(KEY.blocks, blocks);
+      if(typeof b.height===&#x27;number&#x27; &amp;&amp; b.height &gt; (head?.height ?? -1)){
+        head = { height: b.height, hash: b.hash, ts: b.ts || Date.now() };
+        saveJSON(KEY.head, head);
+      }
+      try{ renderBlocks(); renderChart(); setCurRateFromBlocks(); }catch(e){}
+    }
+  }
+
+  function mergeRemoteHead(h){
+    if(!h || typeof h.height!==&#x27;number&#x27;) return;
+    if(h.height &gt; (head?.height ?? -1)){
+      head = h;
+      saveJSON(KEY.head, head);
+      try{ renderBlocks(); renderChart(); setCurRateFromBlocks(); }catch(e){}
+    }
+  }
+
+  function mergeRemoteOutput(o){
+    if(!o) return;
+    const key = o.outId || o.id || o.refBlock || String(o.ts||&#x27;&#x27;);
+    if(!key) return;
+    if(_seenRemoteOuts.has(key)) return;
+    _seenRemoteOuts.add(key);
+    if(!outputs.some(x =&gt; (x.outId||x.id||x.refBlock) === (o.outId||o.id||o.refBlock))){
+      outputs.push(o);
+      saveJSON(KEY.outputs, outputs);
+      try{ renderOutputs(); }catch(e){}
+    }
+  }
+
+  function startChainSync(){
+    if(!gun) return;
+    gun.get(CHAIN_NODE).get(&#x27;head&#x27;).on((h)=&gt;{ try{ mergeRemoteHead(h); }catch(e){} });
+    gun.get(CHAIN_NODE).get(&#x27;blocks&#x27;).map().on((b)=&gt;{ try{ mergeRemoteBlock(b); }catch(e){} });
+    gun.get(CHAIN_NODE).get(&#x27;outputs&#x27;).map().on((o)=&gt;{ try{ mergeRemoteOutput(o); }catch(e){} });
+  }
+
+  const PUB_QUEUE_KEY = &#x27;MWAL_PUB_QUEUE_V1&#x27;;
+  const pubQueue = loadJSON(PUB_QUEUE_KEY, []);
+  let gun = null;
+  try { if(window.Gun){ gun = Gun(GUN_PEERS); } } catch(e){ gun = null; }
+  try{ startChainSync(); }catch(e){}
+
+  function setPubStatus(t){
+    const el = document.getElementById(&#x27;pubStatus&#x27;);
+    if(el) el.textContent = t || &#x27;—&#x27;;
+  }
+
+  function enqueuePublicPoint(pt){
+    pubQueue.push(pt);
+    saveJSON(PUB_QUEUE_KEY, pubQueue);
+  }
+
+  function publishPublicPoint(pt){
+    if(!gun){
+      enqueuePublicPoint(pt);
+      setPubStatus(&#x27;queue (offline)&#x27;);
+      return false;
+    }
+    try{
+      gun.get(PUBLIC_NODE).get(pt.asset).set(pt); // append-only
+      setPubStatus(&#x27;publié&#x27;);
+      return true;
+    }catch(e){
+      enqueuePublicPoint(pt);
+      setPubStatus(&#x27;queue (erreur)&#x27;);
+      return false;
+    }
+  }
+
+  function retryPublishQueue(){
+    if(!pubQueue.length) return;
+    if(!gun) return;
+    const batch = pubQueue.splice(0, 10);
+    saveJSON(PUB_QUEUE_KEY, pubQueue);
+    for(const pt of batch){
+      try{ gun.get(PUBLIC_NODE).get(pt.asset).set(pt); }catch(e){ /* ignore */ }
+    }
+    setPubStatus(pubQueue.length ? (&#x27;queue &#x27;+pubQueue.length) : &#x27;publié&#x27;);
+  }
+
+  setInterval(retryPublishQueue, 6000);
+
+
+  const KEY = {
+    deposits: &#x27;MWAL_OFFCHAIN_DEPOSITS_V1&#x27;,
+    blocks:   &#x27;MWAL_OFFCHAIN_BLOCKS_V1&#x27;,
+    outputs:  &#x27;MWAL_OFFCHAIN_OUTPUTS_V1&#x27;,
+    head:     &#x27;MWAL_OFFCHAIN_HEAD_V1&#x27;,
+    settings: &#x27;MWAL_OFFCHAIN_SETTINGS_V1&#x27;
+  };
+
+  const $ = (id) =&gt; document.getElementById(id);
+
+  function toStr20(v){
+    const s = String(v ?? &#x27;&#x27;).trim();
+    if(!s) return &#x27;0&#x27;;
+    if(!s.includes(&#x27;.&#x27;)) return s;
+    const parts = s.split(&#x27;.&#x27;);
+    return parts[0] + &#x27;.&#x27; + (parts[1]||&#x27;&#x27;).slice(0,20);
+  }
+  function isNumericString(s){
+    if(typeof s !== &#x27;string&#x27;) return false;
+    const t = s.trim();
+    if(!t) return false;
+    return /^-?\d+(\.\d+)?$/.test(t);
+  }
+  function safeNum(v){ const n=Number(v); return Number.isFinite(n)?n:0; }
+  function normalizeAsset(a){
+    const x = String(a||&#x27;&#x27;).toUpperCase().trim();
+    if(x.includes(&#x27;MWOLLOW&#x27;)) return &#x27;MWOLLOWM&#x27;;
+    if(x.includes(&#x27;MWAL&#x27;)) return &#x27;MWAL&#x27;;
+    return x || &#x27;MWAL&#x27;;
+  }
+  function uid(prefix){ return prefix+&#x27;-&#x27;+Date.now().toString(36).toUpperCase()+&#x27;-&#x27;+Math.random().toString(36).slice(2,8).toUpperCase(); }
+  function escapeHtml(str){
+    return String(str ?? &#x27;&#x27;).replaceAll(&#x27;&amp;&#x27;,&#x27;&amp;amp;&#x27;).replaceAll(&#x27;&lt;&#x27;,&#x27;&amp;lt;&#x27;).replaceAll(&#x27;&gt;&#x27;,&#x27;&amp;gt;&#x27;)
+      .replaceAll(&#x27;&quot;&#x27;,&#x27;&amp;quot;&#x27;).replaceAll(&quot;&#x27;&quot;,&quot;&amp;#039;&quot;);
+  }
+  async function sha256Hex(text){
+    const buf = new TextEncoder().encode(text);
+    const hash = await crypto.subtle.digest(&#x27;SHA-256&#x27;, buf);
+    return [...new Uint8Array(hash)].map(b=&gt;b.toString(16).padStart(2,&#x27;0&#x27;)).join(&#x27;&#x27;);
+  }
+  function powPrefix(d){ return &#x27;0&#x27;.repeat(Math.max(1, Math.min(8, d|0))); }
+
+  function loadJSON(key, fallback){
+    try{ const s=localStorage.getItem(key); if(!s) return fallback; return JSON.parse(s); }catch{ return fallback; }
+  }
+  function saveJSON(key, obj){ localStorage.setItem(key, JSON.stringify(obj)); }
+
+  let deposits = loadJSON(KEY.deposits, []);
+  let blocks   = loadJSON(KEY.blocks, []);
+  let outputs  = loadJSON(KEY.outputs, []);
+  let head     = loadJSON(KEY.head, { height:-1, hash:&#x27;0&#x27; });
+  let settings = loadJSON(KEY.settings, { difficulty:4, slice:80 });
+
+  function getDeep(obj, paths){
+    for(const p of paths){
+      const parts=p.split(&#x27;.&#x27;);
+      let cur=obj, ok=true;
+      for(const part of parts){
+        if(cur &amp;&amp; typeof cur===&#x27;object&#x27; &amp;&amp; part in cur) cur=cur[part];
+        else { ok=false; break; }
+      }
+      if(ok &amp;&amp; cur!==undefined &amp;&amp; cur!==null &amp;&amp; String(cur).trim()!==&#x27;&#x27;) return cur;
+    }
+    return &#x27;&#x27;;
+  }
+
+  function extractPayloadInfo(wrapper){
+    const payload = wrapper?.payload;
+    if(!payload || typeof payload !== &#x27;object&#x27;) return null;
+
+    const asset = normalizeAsset(getDeep(payload, [&#x27;asset&#x27;,&#x27;proof.asset&#x27;,&#x27;proof.unit&#x27;,&#x27;proof.token&#x27;,&#x27;meta.asset&#x27;]));
+    const amount = String(getDeep(payload, [&#x27;amount&#x27;,&#x27;proof.amount&#x27;,&#x27;meta.amount&#x27;]) || &#x27;&#x27;).trim();
+    const label = String(getDeep(payload, [&#x27;label&#x27;,&#x27;meta.label&#x27;,&#x27;proof.label&#x27;,&#x27;meta.item&#x27;,&#x27;item&#x27;,&#x27;proof.item&#x27;]) || &#x27;&#x27;).trim();
+    const finalTo = String(getDeep(payload, [&#x27;finalTo&#x27;,&#x27;to&#x27;,&#x27;proof.finalTo&#x27;,&#x27;proof.to&#x27;,&#x27;proof.toAddr&#x27;,&#x27;proof.toPOS&#x27;]) || &#x27;&#x27;).trim();
+    const from = String(getDeep(payload, [&#x27;from&#x27;,&#x27;proof.from&#x27;,&#x27;proof.posId&#x27;,&#x27;proof.walletId&#x27;,&#x27;sender&#x27;,&#x27;meta.from&#x27;]) || &#x27;&#x27;).trim();
+    return { payload, asset, amount, label, finalTo, from };
+  }
+
+  function validateDepositObject(obj){
+    if(!obj || typeof obj !== &#x27;object&#x27;) return { ok:false, msg:&#x27;JSON invalide (objet attendu).&#x27; };
+    if(obj.protocol !== &#x27;MWAL_CHAIN_DEPOSIT_V1&#x27;) return { ok:false, msg:&#x27;Protocol attendu: MWAL_CHAIN_DEPOSIT_V1.&#x27; };
+    if(!obj.payload || typeof obj.payload !== &#x27;object&#x27;) return { ok:false, msg:&#x27;payload manquant.&#x27; };
+
+    const info = extractPayloadInfo(obj);
+    if(!info) return { ok:false, msg:&#x27;Impossible de lire payload.&#x27; };
+
+    if(!info.label || info.label.trim().length &lt; 2) return { ok:false, msg:&#x27;❌ Libellé obligatoire (bien/service).&#x27; };
+    if(!isNumericString(info.amount) || safeNum(info.amount) &lt;= 0) return { ok:false, msg:&#x27;Montant invalide (&gt;0).&#x27; };
+    if(!info.finalTo || info.finalTo.trim().length &lt; 3) return { ok:false, msg:&#x27;Destinataire final introuvable (payload.finalTo conseillé).&#x27; };
+
+    return { ok:true, msg:`✅ OK — actif ${info.asset}, montant ${toStr20(info.amount)}, libellé “${info.label}”.` };
+  }
+
+  function setValidate(msg, cls=&#x27;warnb&#x27;){
+    const box=$(&#x27;validateBox&#x27;);
+    box.className=&#x27;pill &#x27;+cls;
+    box.textContent=msg;
+  }
+
+  let selectedDepositId = &#x27;&#x27;;
+
+  function setMineStatus(msg, cls=&#x27;warnb&#x27;){
+    const box=$(&#x27;mineStatus&#x27;);
+    box.className=&#x27;pill &#x27;+cls;
+    box.textContent=msg;
+  }
+
+  function findDeposit(id){ return deposits.find(d=&gt;d.depositId===id); }
+
+  function setExport(text){ $(&#x27;exportBox&#x27;).value = text || &#x27;&#x27;; }
+
+  $(&#x27;btnCopy&#x27;).addEventListener(&#x27;click&#x27;, async ()=&gt;{
+    const t=$(&#x27;exportBox&#x27;).value.trim();
+    if(!t) return;
+    await navigator.clipboard.writeText(t);
+    alert(&#x27;Copié.&#x27;);
+  });
+  $(&#x27;btnDownload&#x27;).addEventListener(&#x27;click&#x27;, ()=&gt;{
+    const t=$(&#x27;exportBox&#x27;).value.trim();
+    if(!t) return alert(&#x27;Rien à télécharger.&#x27;);
+    const blob=new Blob([t],{type:&#x27;application/json&#x27;});
+    const a=document.createElement(&#x27;a&#x27;);
+    a.href=URL.createObjectURL(blob);
+    a.download=&#x27;mwal_export_&#x27;+Date.now()+&#x27;.json&#x27;;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=&gt;{URL.revokeObjectURL(a.href);a.remove();},0);
+  });
+  $(&#x27;btnClearExport&#x27;).addEventListener(&#x27;click&#x27;, ()=&gt; setExport(&#x27;&#x27;));
+
+  function renderDeposits(){
+    const tbody=$(&#x27;depBody&#x27;); tbody.innerHTML=&#x27;&#x27;;
+    const pending = deposits.filter(d=&gt;d &amp;&amp; d.status===&#x27;LOCKED&#x27; &amp;&amp; !d.processed).length;
+    const done = deposits.filter(d=&gt;d &amp;&amp; d.processed).length;
+    $(&#x27;pendingCount&#x27;).textContent=String(pending);
+    $(&#x27;doneCount&#x27;).textContent=String(done);
+    $(&#x27;selDeposit&#x27;).textContent=selectedDepositId||&#x27;—&#x27;;
+
+    const list=[...deposits].sort((a,b)=&gt;(b.receivedAt||0)-(a.receivedAt||0)).slice(0,80);
+    for(const d of list){
+      const info = extractPayloadInfo(d) || {};
+      const tr=document.createElement(&#x27;tr&#x27;);
+      tr.innerHTML=`
+        &lt;td class=&quot;mono hash&quot; title=&quot;${escapeHtml(d.depositId)}&quot;&gt;${escapeHtml(d.depositId||&#x27;&#x27;)}&lt;/td&gt;
+        &lt;td&gt;&lt;span class=&quot;tag&quot;&gt;${escapeHtml(d.origin||&#x27;—&#x27;)}&lt;/span&gt;&lt;/td&gt;
+        &lt;td class=&quot;mono&quot;&gt;${escapeHtml(info.asset||&#x27;MWAL&#x27;)}&lt;/td&gt;
+        &lt;td class=&quot;right mono&quot;&gt;${escapeHtml(toStr20(info.amount||&#x27;&#x27;))}&lt;/td&gt;
+        &lt;td title=&quot;${escapeHtml(info.label||&#x27;&#x27;)}&quot;&gt;${escapeHtml((info.label||&#x27;&#x27;).slice(0,22))}${(info.label||&#x27;&#x27;).length&gt;22?&#x27;…&#x27;:&#x27;&#x27;}&lt;/td&gt;
+        &lt;td class=&quot;mono hash&quot; title=&quot;${escapeHtml(info.finalTo||&#x27;&#x27;)}&quot;&gt;${escapeHtml((info.finalTo||&#x27;&#x27;).slice(0,16))}${(info.finalTo||&#x27;&#x27;).length&gt;16?&#x27;…&#x27;:&#x27;&#x27;}&lt;/td&gt;
+        &lt;td&gt;${d.processed ? &#x27;&lt;span class=&quot;tag ok&quot;&gt;PROCESSED&lt;/span&gt;&#x27; : &#x27;&lt;span class=&quot;tag warnb&quot;&gt;LOCKED&lt;/span&gt;&#x27;}&lt;/td&gt;
+        &lt;td class=&quot;right&quot;&gt;&lt;button data-sel=&quot;${escapeHtml(d.depositId)}&quot; class=&quot;${d.depositId===selectedDepositId?&#x27;primary&#x27;:&#x27;&#x27;}&quot;&gt;Sélectionner&lt;/button&gt;&lt;/td&gt;
+      `;
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll(&#x27;button[data-sel]&#x27;).forEach(btn=&gt;{
+      btn.addEventListener(&#x27;click&#x27;, ()=&gt;{
+        selectedDepositId=btn.getAttribute(&#x27;data-sel&#x27;)||&#x27;&#x27;;
+        renderDeposits();
+        setMineStatus(&#x27;Dépôt sélectionné: &#x27;+selectedDepositId,&#x27;warnb&#x27;);
+      });
+    });
+
+    renderBlocks(); renderOutputs(); refreshChart();
+  }
+
+  function renderBlocks(){
+    const tbody=$(&#x27;blkBody&#x27;); tbody.innerHTML=&#x27;&#x27;;
+    const list=[...blocks].sort((a,b)=&gt;(b.height||0)-(a.height||0)).slice(0,40);
+    for(const b of list){
+      const tr=document.createElement(&#x27;tr&#x27;);
+      tr.innerHTML=`
+        &lt;td class=&quot;mono&quot;&gt;${escapeHtml(b.height)}&lt;/td&gt;
+        &lt;td&gt;&lt;span class=&quot;tag&quot;&gt;${escapeHtml(b.blockType||&#x27;&#x27;)}&lt;/span&gt;&lt;/td&gt;
+        &lt;td class=&quot;mono&quot;&gt;${escapeHtml(b.asset||&#x27;&#x27;)}&lt;/td&gt;
+        &lt;td class=&quot;right mono&quot;&gt;${escapeHtml(b.amount||&#x27;&#x27;)}&lt;/td&gt;
+        &lt;td class=&quot;right mono&quot;&gt;${escapeHtml(b.eur||&#x27;&#x27;)}&lt;/td&gt;
+        &lt;td class=&quot;right mono&quot;&gt;${Number(b.rate||0).toFixed(6)}&lt;/td&gt;
+        &lt;td class=&quot;mono hash&quot; title=&quot;${escapeHtml(b.hash||&#x27;&#x27;)}&quot;&gt;${escapeHtml((b.hash||&#x27;&#x27;).slice(0,18))}…&lt;/td&gt;
+        &lt;td class=&quot;right&quot;&gt;&lt;button data-bexp=&quot;${escapeHtml(b.hash||&#x27;&#x27;)}&quot;&gt;Copier bloc&lt;/button&gt;&lt;/td&gt;
+      `;
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll(&#x27;button[data-bexp]&#x27;).forEach(btn=&gt;{
+      btn.addEventListener(&#x27;click&#x27;, ()=&gt;{
+        const h=btn.getAttribute(&#x27;data-bexp&#x27;);
+        const b=blocks.find(x=&gt;x.hash===h);
+        if(b) setExport(JSON.stringify(b,null,2));
+      });
+    });
+  }
+
+  function renderOutputs(){
+    const tbody=$(&#x27;outBody&#x27;); tbody.innerHTML=&#x27;&#x27;;
+    const list=[...outputs].sort((a,b)=&gt;(b.ts||0)-(a.ts||0)).slice(0,60);
+    for(const o of list){
+      const tr=document.createElement(&#x27;tr&#x27;);
+      tr.innerHTML=`
+        &lt;td class=&quot;mono hash&quot; title=&quot;${escapeHtml(o.outId)}&quot;&gt;${escapeHtml(o.outId||&#x27;&#x27;)}&lt;/td&gt;
+        &lt;td class=&quot;mono hash&quot; title=&quot;${escapeHtml(o.to)}&quot;&gt;${escapeHtml((o.to||&#x27;&#x27;).slice(0,18))}${(o.to||&#x27;&#x27;).length&gt;18?&#x27;…&#x27;:&#x27;&#x27;}&lt;/td&gt;
+        &lt;td class=&quot;mono&quot;&gt;${escapeHtml(o.asset||&#x27;&#x27;)}&lt;/td&gt;
+        &lt;td class=&quot;right mono&quot;&gt;${escapeHtml(o.amount||&#x27;&#x27;)}&lt;/td&gt;
+        &lt;td class=&quot;mono hash&quot; title=&quot;${escapeHtml(o.refBlock||&#x27;&#x27;)}&quot;&gt;${escapeHtml((o.refBlock||&#x27;&#x27;).slice(0,18))}…&lt;/td&gt;
+        &lt;td class=&quot;right&quot;&gt;&lt;button data-oexp=&quot;${escapeHtml(o.outId)}&quot; class=&quot;primary&quot;&gt;Copier sortie&lt;/button&gt;&lt;/td&gt;
+      `;
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll(&#x27;button[data-oexp]&#x27;).forEach(btn=&gt;{
+      btn.addEventListener(&#x27;click&#x27;, ()=&gt;{
+        const id=btn.getAttribute(&#x27;data-oexp&#x27;);
+        const o=outputs.find(x=&gt;x.outId===id);
+        if(o) setExport(JSON.stringify(o,null,2));
+      });
+    });
+  }
+
+  const canvas=$(&#x27;chart&#x27;);
+  const ctx=canvas.getContext(&#x27;2d&#x27;);
+
+  function buildSeries(asset){
+    return blocks
+      .filter(b=&gt;b &amp;&amp; b.blockType===&#x27;EXCHANGE&#x27; &amp;&amp; normalizeAsset(b.asset)===asset &amp;&amp; Number(b.rate)&gt;0)
+      .sort((a,b)=&gt;(a.ts||0)-(b.ts||0))
+      .map(b=&gt;({ts:b.ts||0,v:Number(b.rate)}));
+  }
+
+  function refreshChart(){
+    const asset=$(&#x27;assetSel&#x27;).value;
+    const pts=buildSeries(asset);
+    $(&#x27;ptCount&#x27;).textContent=String(pts.length);
+    $(&#x27;curRate&#x27;).textContent=pts.length? (pts[pts.length-1].v.toFixed(6)+&#x27; €&#x27;) : &#x27;—&#x27;;
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    if(pts.length&lt;2){
+      ctx.fillStyle=&#x27;rgba(233,238,255,.80)&#x27;;
+      ctx.font=&#x27;16px system-ui&#x27;;
+      ctx.fillText(&#x27;Aucun cours disponible (pas de blocs EXCHANGE).&#x27;,18,40);
+      ctx.font=&#x27;12px system-ui&#x27;;
+      ctx.fillText(&#x27;Mine un dépôt avec un € &gt; 0 pour générer un bloc EXCHANGE.&#x27;,18,62);
+      return;
+    }
+
+    let minV=Infinity,maxV=-Infinity;
+    for(const p of pts){ minV=Math.min(minV,p.v); maxV=Math.max(maxV,p.v); }
+    if(minV===maxV){ minV*=0.99; maxV*=1.01; }
+
+    const w=canvas.width,h=canvas.height;
+    const left=40,right=18,top=18,bottom=32;
+    const innerW=w-left-right, innerH=h-top-bottom;
+
+    ctx.save(); ctx.globalAlpha=0.35; ctx.lineWidth=1;
+    for(let i=0;i&lt;=5;i++){
+      const y=top+innerH*(i/5);
+      ctx.beginPath(); ctx.moveTo(left,y); ctx.lineTo(w-right,y); ctx.stroke();
+    }
+    ctx.restore();
+
+    const t0=pts[0].ts, t1=pts[pts.length-1].ts, dt=Math.max(1,t1-t0);
+    const xOf=t=&gt;left+((t-t0)/dt)*innerW;
+    const yOf=v=&gt;top+(1-((v-minV)/(maxV-minV)))*innerH;
+
+    const upColor=getComputedStyle(document.documentElement).getPropertyValue(&#x27;--up&#x27;).trim();
+    const downColor=getComputedStyle(document.documentElement).getPropertyValue(&#x27;--down&#x27;).trim();
+
+    for(let i=1;i&lt;pts.length;i++){
+      const a=pts[i-1], b=pts[i];
+      ctx.strokeStyle=(b.v&gt;=a.v)?upColor:downColor;
+      ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(xOf(a.ts),yOf(a.v)); ctx.lineTo(xOf(b.ts),yOf(b.v)); ctx.stroke();
+    }
+
+    const last=pts[pts.length-1];
+    ctx.fillStyle=&#x27;rgba(233,238,255,.95)&#x27;;
+    ctx.beginPath(); ctx.arc(xOf(last.ts),yOf(last.v),4,0,Math.PI*2); ctx.fill();
+
+    ctx.fillStyle=&#x27;rgba(233,238,255,.80)&#x27;;
+    ctx.font=&#x27;12px ui-monospace&#x27;;
+    ctx.fillText(minV.toFixed(6)+&#x27; €&#x27;,left,h-10);
+    ctx.fillText(maxV.toFixed(6)+&#x27; €&#x27;,left,14);
+  }
+  $(&#x27;assetSel&#x27;).addEventListener(&#x27;change&#x27;, refreshChart);
+
+  let mining={ running:false, targetId:&#x27;&#x27;, nonce:0, hashes:0, lastTs:0, lastHash:&#x27;&#x27;, candidate:null };
+
+  function setMiningUI(){
+    $(&#x27;btnMine&#x27;).disabled=mining.running;
+    $(&#x27;btnStop&#x27;).disabled=!mining.running;
+  }
+
+  async function buildCandidateBlock(dep){
+    const info=extractPayloadInfo(dep);
+    if(!info) throw new Error(&#x27;Payload illisible.&#x27;);
+    const diff=Number($(&#x27;diff&#x27;).value)||4;
+    const eur=toStr20($(&#x27;eurInput&#x27;).value.trim()||&#x27;0&#x27;);
+    const amount=toStr20(info.amount);
+    const isExchange=safeNum(eur)&gt;0;
+    const blockType=isExchange?&#x27;EXCHANGE&#x27;:&#x27;TRANSFER&#x27;;
+    const rate=(isExchange &amp;&amp; safeNum(amount)&gt;0)?(safeNum(eur)/safeNum(amount)):0;
+
+    const prev=head.hash||&#x27;0&#x27;;
+    const height=(head.height??-1)+1;
+
+    const b={
+      protocol:&#x27;MWAL_CHAIN_BLOCK_V1&#x27;,
+      height, prevHash:prev, ts:Date.now(),
+      blockType, asset:info.asset,
+      amount, eur:isExchange?eur:&#x27;0&#x27;, rate,
+      label:info.label, from:info.from||&#x27;&#x27;, to:info.finalTo,
+      pow:{ protocol:&#x27;MWAL_CHAIN_POW_V1&#x27;, difficulty:diff, nonce:0, hash:&#x27;&#x27; },
+      witness:{ protocol:&#x27;MWAL_WITNESS_V1&#x27;, note:$(&#x27;witnessNote&#x27;).value.trim(), version:&#x27;OFFLINE&#x27; },
+      refs:{ depositId:dep.depositId },
+      payloadRef:{ protocol:&#x27;MWAL_PAYLOAD_REF_V1&#x27;, depositId:dep.depositId }
+    };
+
+    const base=JSON.stringify({
+      protocol:b.protocol,height:b.height,prevHash:b.prevHash,ts:b.ts,blockType:b.blockType,
+      asset:b.asset,amount:b.amount,eur:b.eur,rate:b.rate,label:b.label,from:b.from,to:b.to,
+      witness:b.witness,refs:b.refs,payloadRef:b.payloadRef,pow:{protocol:b.pow.protocol,difficulty:b.pow.difficulty}
+    });
+
+    return { block:b, base };
+  }
+
+  async function commitBlock(dep, block, pow){
+    block.pow={...block.pow,...pow};
+    block.hash=pow.hash.toUpperCase();
+
+    blocks.push(block);
+    head={ height:block.height, hash:block.hash, ts:block.ts };
+
+    dep.processed=true;
+    dep.processedAt=Date.now();
+    dep.blockHash=block.hash;
+
+    const out={
+      protocol:&#x27;MWAL_CHAIN_OUTPUT_V1&#x27;,
+      outId:uid(&#x27;OUT&#x27;),
+      ts:Date.now(),
+      to:block.to,
+      asset:block.asset,
+      amount:block.amount,
+      refBlock:block.hash,
+      status:&#x27;READY&#x27;,
+      label:block.label,
+      refs:{ depositId:dep.depositId }
+    };
+    outputs.push(out);
+
+    // Publier automatiquement le cours (uniquement pour EXCHANGE)
+    if(block.blockType === &#x27;EXCHANGE&#x27; &amp;&amp; Number(block.rate) &gt; 0){
+      const point = {
+        protocol: &#x27;MWAL_PUBLIC_RATE_V1&#x27;,
+        asset: block.asset,
+        rate: Number(block.rate),
+        eur: block.eur,
+        amount: block.amount,
+        label: block.label,
+        ts: block.ts,
+        refBlock: block.hash
+      };
+      publishPublicPoint(point);
+    }
+
+    saveJSON(KEY.blocks,blocks);
+    try{ publishChainBlock(block); publishChainHead(); }catch(e){}
+    saveJSON(KEY.head,head);
+    try{ publishChainHead(); }catch(e){}
+    saveJSON(KEY.deposits,deposits);
+    saveJSON(KEY.outputs,outputs);
+
+    setMineStatus(`✅ Bloc miné (#${block.height}) + sortie créée (${out.outId}).`,&#x27;ok&#x27;);
+    setExport(JSON.stringify(out,null,2));
+    mining.candidate=null;
+    mining.nonce=0;
+    mining.hashes=0;
+    $(&#x27;miningBlk&#x27;).textContent=&#x27;—&#x27;;
+    setMiningUI();
+    renderDeposits();
+  }
+
+  async function mineStep(){
+    if(!mining.running) return;
+    const dep=findDeposit(mining.targetId);
+    if(!dep || dep.processed){
+      mining.running=false;
+      setMineStatus(&#x27;Cible invalide (absent ou déjà traité).&#x27;,&#x27;bad&#x27;);
+      setMiningUI();
+      return;
+    }
+
+    const diff=Number($(&#x27;diff&#x27;).value)||4;
+    const prefix=powPrefix(diff);
+    const slice=Number($(&#x27;slice&#x27;).value)||80;
+
+    if(!mining.candidate){
+      try{
+        mining.candidate=await buildCandidateBlock(dep);
+        $(&#x27;miningBlk&#x27;).textContent=`#${mining.candidate.block.height} ${mining.candidate.block.blockType}`;
+      }catch(e){
+        mining.running=false;
+        setMineStatus(&#x27;Erreur: &#x27;+(e.message||&#x27;buildCandidate&#x27;),&#x27;bad&#x27;);
+        setMiningUI();
+        return;
+      }
+    }
+
+    const start=performance.now();
+    let nonce=mining.nonce;
+    let lastHash=mining.lastHash;
+
+    while(performance.now()-start&lt;slice){
+      const h=await sha256Hex(mining.candidate.base+&#x27;|&#x27;+nonce);
+      mining.hashes++;
+      lastHash=h;
+      if(h.startsWith(prefix)){
+        $(&#x27;nonce&#x27;).textContent=String(nonce);
+        $(&#x27;hash&#x27;).textContent=h.slice(0,18)+&#x27;…&#x27;;
+        mining.running=false;
+        const pow={ protocol:&#x27;MWAL_CHAIN_POW_V1&#x27;, difficulty:diff, nonce, hash:h };
+        await commitBlock(dep, mining.candidate.block, pow);
+        mining.lastHash=&#x27;&#x27;;
+        $(&#x27;hr&#x27;).textContent=&#x27;0&#x27;;
+        return;
+      }
+      nonce++;
+    }
+
+    mining.nonce=nonce;
+    mining.lastHash=lastHash;
+    $(&#x27;nonce&#x27;).textContent=String(nonce);
+    $(&#x27;hash&#x27;).textContent=lastHash? (lastHash.slice(0,18)+&#x27;…&#x27;):&#x27;—&#x27;;
+
+    const now=performance.now();
+    if(!mining.lastTs) mining.lastTs=now;
+    const dt=now-mining.lastTs;
+    if(dt&gt;=700){
+      const rate=Math.round(mining.hashes/(dt/1000));
+      $(&#x27;hr&#x27;).textContent=String(rate);
+      mining.lastTs=now;
+      mining.hashes=0;
+    }
+  }
+
+  function importDeposit(){
+    const raw=$(&#x27;depositIn&#x27;).value.trim();
+    if(!raw) return setValidate(&#x27;Colle un dépôt JSON.&#x27;,&#x27;warnb&#x27;);
+    let obj;
+    try{ obj=JSON.parse(raw); }catch{ return setValidate(&#x27;JSON invalide (parse).&#x27;,&#x27;bad&#x27;); }
+
+    if(!obj.depositId) obj.depositId=uid(&#x27;DEP&#x27;);
+    if(!obj.origin) obj.origin=&#x27;UNKNOWN&#x27;;
+    if(!obj.receivedAt) obj.receivedAt=Date.now();
+    if(!obj.status) obj.status=&#x27;LOCKED&#x27;;
+
+    const v=validateDepositObject(obj);
+    if(!v.ok) return setValidate(v.msg,&#x27;bad&#x27;);
+
+    if(deposits.some(d=&gt;d.depositId===obj.depositId)) return setValidate(&#x27;Dépôt déjà présent (depositId duplicate).&#x27;,&#x27;warnb&#x27;);
+
+    deposits.push(obj);
+    saveJSON(KEY.deposits,deposits);
+
+    setValidate(&#x27;Import réussi: &#x27;+obj.depositId,&#x27;ok&#x27;);
+    selectedDepositId=obj.depositId;
+    setMineStatus(&#x27;Prêt à miner: &#x27;+selectedDepositId,&#x27;warnb&#x27;);
+    renderDeposits();
+  }
+
+  function exportAll(){
+    const backup={ protocol:&#x27;MWAL_OFFLINE_BACKUP_V1&#x27;, ts:Date.now(), head, deposits, blocks, outputs };
+    setExport(JSON.stringify(backup,null,2));
+  }
+
+  function resetAll(){
+    if(!confirm(&#x27;Réinitialiser dépôts/blocs/sorties (localStorage) ?&#x27;)) return;
+    deposits=[]; blocks=[]; outputs=[]; head={height:-1,hash:&#x27;0&#x27;};
+    selectedDepositId=&#x27;&#x27;;
+    mining.running=false; mining.candidate=null; mining.nonce=0;
+    saveJSON(KEY.deposits,deposits); saveJSON(KEY.blocks,blocks); saveJSON(KEY.outputs,outputs); saveJSON(KEY.head,head);
+    $(&#x27;depositIn&#x27;).value=&#x27;&#x27;;
+    setValidate(&#x27;Réinitialisé.&#x27;,&#x27;warnb&#x27;);
+    setMineStatus(&#x27;Réinitialisé.&#x27;,&#x27;warnb&#x27;);
+    $(&#x27;nonce&#x27;).textContent=&#x27;—&#x27;; $(&#x27;hash&#x27;).textContent=&#x27;—&#x27;; $(&#x27;hr&#x27;).textContent=&#x27;0&#x27;; $(&#x27;miningBlk&#x27;).textContent=&#x27;—&#x27;;
+    renderDeposits();
+  }
+
+  function pasteExample(){
+    const example={
+      protocol:&#x27;MWAL_CHAIN_DEPOSIT_V1&#x27;,
+      depositId:&#x27;DEP-DEMO-001&#x27;,
+      origin:&#x27;WALLET&#x27;,
+      receivedAt:Date.now(),
+      status:&#x27;LOCKED&#x27;,
+      payload:{
+        protocol:&#x27;MWAL_PACKAGE_V1&#x27;,
+        key:&#x27;MWAL|TX=DEMO|FROM=MWAL-WALLET-AAAA|TO=MWAL-CHAIN-CENTRAL|AMOUNT=1.25000000000000000000&#x27;,
+        code:&#x27;MWAL-AESGCM|IV|CIPHERTEXT&#x27;,
+        proof:{ protocol:&#x27;MWAL_MINING_V2&#x27;, from:&#x27;MWAL-WALLET-AAAA&#x27;, to:&#x27;MWAL-CHAIN-CENTRAL&#x27;, amount:&#x27;1.25000000000000000000&#x27;, asset:&#x27;MWAL&#x27; },
+        asset:&#x27;MWAL&#x27;,
+        amount:&#x27;1.25000000000000000000&#x27;,
+        label:&#x27;réparation vélo&#x27;,
+        finalTo:&#x27;MWAL-POS-123456&#x27;
+      }
+    };
+    $(&#x27;depositIn&#x27;).value=JSON.stringify(example,null,2);
+    setValidate(&#x27;Exemple collé. Clique “Vérifier &amp; Importer”.&#x27;,&#x27;warnb&#x27;);
+  }
+
+  $(&#x27;diff&#x27;).value=settings.difficulty??4;
+  $(&#x27;slice&#x27;).value=settings.slice??80;
+  $(&#x27;diff&#x27;).addEventListener(&#x27;change&#x27;, ()=&gt;{ settings.difficulty=Number($(&#x27;diff&#x27;).value)||4; saveJSON(KEY.settings,settings); });
+  $(&#x27;slice&#x27;).addEventListener(&#x27;change&#x27;, ()=&gt;{ settings.slice=Number($(&#x27;slice&#x27;).value)||80; saveJSON(KEY.settings,settings); });
+
+  $(&#x27;btnImport&#x27;).addEventListener(&#x27;click&#x27;, importDeposit);
+  $(&#x27;btnExample&#x27;).addEventListener(&#x27;click&#x27;, pasteExample);
+  $(&#x27;btnClearIn&#x27;).addEventListener(&#x27;click&#x27;, ()=&gt;{ $(&#x27;depositIn&#x27;).value=&#x27;&#x27;; setValidate(&#x27;Effacé.&#x27;,&#x27;warnb&#x27;); });
+
+  $(&#x27;btnMine&#x27;).addEventListener(&#x27;click&#x27;, ()=&gt;{
+    if(mining.running) return;
+    if(!selectedDepositId) return setMineStatus(&#x27;Sélectionne un dépôt d’abord.&#x27;,&#x27;bad&#x27;);
+    const dep=findDeposit(selectedDepositId);
+    if(!dep) return setMineStatus(&#x27;Dépôt introuvable.&#x27;,&#x27;bad&#x27;);
+    if(dep.processed) return setMineStatus(&#x27;Dépôt déjà traité.&#x27;,&#x27;warnb&#x27;);
+
+    const eur=$(&#x27;eurInput&#x27;).value.trim();
+    if(eur &amp;&amp; (!isNumericString(eur) || safeNum(eur)&lt;0)) return setMineStatus(&#x27;€ invalide (nombre &gt;=0).&#x27;,&#x27;bad&#x27;);
+
+    const info=extractPayloadInfo(dep);
+    if(!info || !info.label || info.label.trim().length&lt;2) return setMineStatus(&#x27;Libellé manquant: dépôt refusé.&#x27;,&#x27;bad&#x27;);
+
+    mining.running=true;
+    mining.targetId=selectedDepositId;
+    mining.nonce=0; mining.hashes=0; mining.lastTs=0; mining.lastHash=&#x27;&#x27;; mining.candidate=null;
+    $(&#x27;nonce&#x27;).textContent=&#x27;0&#x27;; $(&#x27;hash&#x27;).textContent=&#x27;—&#x27;; $(&#x27;hr&#x27;).textContent=&#x27;0&#x27;;
+    setMineStatus(&#x27;Minage en cours…&#x27;,&#x27;warnb&#x27;);
+    setMiningUI();
+  });
+
+  $(&#x27;btnStop&#x27;).addEventListener(&#x27;click&#x27;, ()=&gt;{
+    mining.running=false;
+    mining.candidate=null;
+    setMineStatus(&#x27;Minage stoppé.&#x27;,&#x27;warnb&#x27;);
+    setMiningUI();
+  });
+
+  $(&#x27;btnResetChain&#x27;).addEventListener(&#x27;click&#x27;, resetAll);
+  $(&#x27;btnExportAll&#x27;).addEventListener(&#x27;click&#x27;, exportAll);
+
+  setInterval(()=&gt;{ mineStep(); }, 60);
+
+  if(head.height &lt; 0 &amp;&amp; blocks.length===0){
+    const genesis={
+      protocol:&#x27;MWAL_CHAIN_BLOCK_V1&#x27;,
+      height:0, prevHash:&#x27;0&#x27;, ts:Date.now(),
+      blockType:&#x27;GENESIS&#x27;,
+      asset:&#x27;&#x27;, amount:&#x27;0&#x27;, eur:&#x27;0&#x27;, rate:0,
+      label:&#x27;GENESIS&#x27;, from:&#x27;&#x27;, to:&#x27;&#x27;,
+      pow:{ protocol:&#x27;MWAL_CHAIN_POW_V1&#x27;, difficulty:0, nonce:0, hash:&#x27;0&#x27; },
+      witness:{ protocol:&#x27;MWAL_WITNESS_V1&#x27;, note:&#x27;Init&#x27;, version:&#x27;OFFLINE&#x27; },
+      refs:{ depositId:&#x27;&#x27; },
+      payloadRef:{ protocol:&#x27;MWAL_PAYLOAD_REF_V1&#x27;, depositId:&#x27;&#x27; },
+      hash:&#x27;GENESIS&#x27;
+    };
+    blocks.push(genesis);
+    head={ height:0, hash:&#x27;GENESIS&#x27;, ts:genesis.ts };
+    saveJSON(KEY.blocks,blocks);
+    saveJSON(KEY.head,head);
+  }
+
+  setPubStatus(&#x27;—&#x27;);
+  setValidate(&#x27;Prêt. Colle un dépôt JSON.&#x27;,&#x27;warnb&#x27;);
+  setMineStatus(&#x27;Prêt. Sélectionne un dépôt et mine.&#x27;,&#x27;warnb&#x27;);
+  renderDeposits();
+  setMiningUI();
+  refreshChart();
+
+})();
+&lt;/script&gt;
+
+&lt;!--
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+DOCUMENTATION MWAL OFFLINE BLOCKCHAIN
+--&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+    </div>
+  </section>
+</main>
+
+<script>
+  const DEFAULT = "https://gun-encaissement.onrender.com/gun";
+  const PUBLIC_NODE = "MWAL_PUBLIC_COURSE_V1";
+  const ASSET = "MWAL";
+
+  const $ = (id)=>document.getElementById(id);
+
+  function setTab(tab){
+    const map = { tDash:"vDash", tWallet:"vWallet", tExpert:"vExpert" };
+    for(const k of Object.keys(map)){
+      $(k).setAttribute("aria-selected", k===tab ? "true":"false");
+      $(map[k]).classList.toggle("active", k===tab);
+    }
+  }
+  $("tDash").onclick=()=>setTab("tDash");
+  $("tWallet").onclick=()=>setTab("tWallet");
+  $("tExpert").onclick=()=>setTab("tExpert");
+
+  $("expertOn").addEventListener("change", ()=>{
+    $("expertWrap").style.display = $("expertOn").checked ? "block":"none";
+  });
+
+  function readPeer(){
+    try{ const raw = localStorage.getItem("mwal_gun_peer"); if(!raw) return DEFAULT; const v = JSON.parse(raw); return v || DEFAULT; }
+    catch(e){ const raw = localStorage.getItem("mwal_gun_peer"); return raw ? raw.replace(/^"|"$/g,"") : DEFAULT; }
+  }
+  function savePeer(p){
+    localStorage.setItem("mwal_gun_peer", JSON.stringify(p));
+  }
+
+  $("peerIn").value = readPeer();
+  $("peerLbl").textContent = readPeer();
+
+  let gun = null;
+  let pts = 0;
+
+  function connect(){
+    const peer = readPeer();
+    $("peerLbl").textContent = peer;
+    try{
+      gun = Gun({peers:[peer]});
+      $("gunDot").className="dot ok";
+      $("gunTxt").textContent="Gun: connecté";
+      gun.get(PUBLIC_NODE).get(ASSET).map().on((pt)=>{
+        if(!pt) return;
+        pts++;
+        $("pts").textContent = String(pts);
+        if(pt.rate!=null) $("rateNow").textContent = String(pt.rate);
+        if(pt.ts) $("lastPoint").textContent = new Date(Number(pt.ts)).toLocaleString("fr-FR");
+        else $("lastPoint").textContent = "reçu";
+      });
+    }catch(e){
+      $("gunDot").className="dot";
+      $("gunTxt").textContent="Gun: erreur";
+    }
+  }
+
+  $("btnPeerSave").onclick=()=>{
+    const p = ($("peerIn").value||"").trim() || DEFAULT;
+    savePeer(p);
+    $("peerLbl").textContent = p;
+  };
+  $("btnPeerConnect").onclick=()=>connect();
+
+  function refreshBalances(){
+    let w=0,c=0;
+    try{
+      const st = JSON.parse(localStorage.getItem("mwal_std_state")||"{}");
+      w = Number(st.balance)||0;
+    }catch(e){}
+    try{
+      const blocks = JSON.parse(localStorage.getItem("MWAL_OFFCHAIN_BLOCKS_V1")||"[]");
+      c = blocks.length;
+    }catch(e){}
+    $("balWallet").textContent = w.toFixed(8);
+    $("balChain").textContent = String(c) + " blocs";
+    $("balTotal").textContent = w.toFixed(8) + " (MWAL) + " + c + " blocs";
+  }
+  setInterval(refreshBalances, 1000);
+  refreshBalances();
+  connect();
+</script>
+</body>
+</html>
