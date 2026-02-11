@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MWAL — Lecteur QR (Image/PDF → Copier)</title>
+
+  <!-- jsQR (lecture QR sur image) -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+  <style>
+    body{font-family:Arial, sans-serif; max-width:980px; margin:0 auto; padding:16px;}
+    h1{font-size:20px;margin:0 0 12px;}
+    .row{display:flex; gap:16px; flex-wrap:wrap;}
+    .panel{flex:1; min-width:320px; border:1px solid #ddd; border-radius:10px; padding:12px;}
+    .hint{color:#555; font-size:13px; line-height:1.35;}
+    .controls{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0;}
+    button{padding:10px 12px; border:0; border-radius:8px; background:#4285f4; color:#fff; cursor:pointer;}
+    button.secondary{background:#666;}
+    button:disabled{opacity:.6; cursor:not-allowed;}
+    input[type="range"]{width:220px;}
+    canvas{max-width:100%; border:1px solid #ccc; border-radius:8px; background:#fafafa;}
+    #out{white-space:pre-wrap; word-break:break-all; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+         background:#f5f5f5; border:1px solid #ddd; border-radius:10px; padding:10px; min-height:140px;}
+    .badge{display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; background:#eee; margin-left:6px;}
+    .ok{background:#d1fae5;}
+    .err{background:#fee2e2;}
+    .small{font-size:12px;color:#666;}
+  </style>
+</head>
+
+<body>
+  <h1>MWAL — Lecteur QR (image token → extraction exacte → copier-coller)</h1>
+
+  <div class="row">
+    <div class="panel">
+      <div class="hint">
+        1) Chargez une image (PNG/JPG) contenant le QR du token.<br>
+        2) Si l’image contient plusieurs QR, <b>zoomez</b> et <b>recadrez</b> sur le QR voulu.<br>
+        3) Cliquez <b>Décoder</b>. Le contenu affiché est <b>exactement</b> ce qui est encodé dans le QR.
+      </div>
+
+      <div class="controls">
+        <input id="file" type="file" accept="image/*" />
+        <button id="btnDecode" disabled>Décoder</button>
+        <button id="btnCopy" class="secondary" disabled>Copier</button>
+      </div>
+
+      <div class="controls">
+        <label class="small">Zoom</label>
+        <input id="zoom" type="range" min="0.5" max="12" step="0.1" value="1">
+        <span id="zoomVal" class="small">x1.0</span>
+        <button id="btnReset" class="secondary" disabled>Reset cadre</button>
+      </div>
+
+      <div class="hint small">
+        Astuce : si vous exportez depuis votre app, privilégiez une capture <b>PNG</b> nette (html2canvas scale=2 ou +).
+        Un QR de 128px dans une capture floue est souvent illisible.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div><b>Image & recadrage</b></div>
+        <div id="status" class="badge">Aucun fichier</div>
+      </div>
+      <p class="small">Glissez pour déplacer le cadre. Redimensionnez via le slider Zoom.</p>
+      <canvas id="view" width="900" height="520"></canvas>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <b>Données extraites</b>
+    <span id="status2" class="badge">—</span>
+    <button id="copyInlineBtn" class="secondary" style="display:none;">
+      Copier données
+    </button>
+  </div>
+  <div id="out">Aucune donnée</div>
+</div>
+
+
+<script>
+(() => {
+  const fileEl = document.getElementById('file');
+  const view = document.getElementById('view');
+  const ctx = view.getContext('2d', { willReadFrequently: true });
+
+  const btnDecode = document.getElementById('btnDecode');
+  const btnCopy = document.getElementById('btnCopy');
+  const btnReset = document.getElementById('btnReset');
+
+  const zoomEl = document.getElementById('zoom');
+  const zoomVal = document.getElementById('zoomVal');
+
+  const status = document.getElementById('status');
+  const status2 = document.getElementById('status2');
+  const out = document.getElementById('out');
+  const copyInlineBtn = document.getElementById("copyInlineBtn");
+
+
+  // Image source
+  const img = new Image();
+  let imgLoaded = false;
+
+  // “Cadre” de recadrage (en coordonnées image)
+  let crop = { x: 0, y: 0, w: 0, h: 0 };
+  let zoom = 1;
+
+  // Drag
+  let dragging = false;
+  let dragStart = { x: 0, y: 0 };
+  let cropStart = { x: 0, y: 0 };
+
+  function setBadge(el, text, kind) {
+    el.textContent = text;
+    el.className = 'badge' + (kind ? ' ' + kind : '');
+  }
+
+  function enableUI(enabled) {
+    btnDecode.disabled = !enabled;
+    btnReset.disabled = !enabled;
+    zoomEl.disabled = !enabled;
+    btnCopy.disabled = true;
+    zoomEl.value = 1;
+    zoomVal.textContent = 'x1.0';
+    zoom = 1;
+  }
+
+  function resetCrop() {
+  // cadre = presque toute l'image
+  const margin = 10;
+
+  crop.x = margin;
+  crop.y = margin;
+  crop.w = img.naturalWidth - margin * 2;
+  crop.h = img.naturalHeight - margin * 2;
+}
+
+
+  function clampCrop() {
+    crop.w = Math.max(80, Math.min(crop.w, img.naturalWidth));
+    crop.h = Math.max(80, Math.min(crop.h, img.naturalHeight));
+    crop.x = Math.max(0, Math.min(crop.x, img.naturalWidth - crop.w));
+    crop.y = Math.max(0, Math.min(crop.y, img.naturalHeight - crop.h));
+  }
+
+  function draw() {
+    if (!imgLoaded) {
+      ctx.clearRect(0,0,view.width,view.height);
+      ctx.fillStyle = '#666';
+      ctx.fillText('Chargez une image...', 20, 30);
+      return;
+    }
+
+    // On affiche l’image entière dans le canvas (fit)
+    const vw = view.width, vh = view.height;
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+
+    const scale = Math.min(vw / iw, vh / ih);
+    const dw = iw * scale, dh = ih * scale;
+    const dx = (vw - dw) / 2;
+    const dy = (vh - dh) / 2;
+
+    ctx.clearRect(0,0,vw,vh);
+    ctx.drawImage(img, 0,0,iw,ih, dx,dy,dw,dh);
+
+    // Dessiner le cadre crop projeté
+    const rx = dx + crop.x * scale;
+    const ry = dy + crop.y * scale;
+    const rw = crop.w * scale;
+    const rh = crop.h * scale;
+
+    // Overlay
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(dx,dy,dw,dh);
+    ctx.clearRect(rx,ry,rw,rh);
+
+    // Cadre
+    ctx.strokeStyle = '#00c853';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(rx,ry,rw,rh);
+
+    ctx.fillStyle = 'rgba(0,200,83,0.12)';
+    ctx.fillRect(rx,ry,rw,rh);
+
+    ctx.restore();
+
+    // Aide texte
+    ctx.save();
+    ctx.fillStyle = '#111';
+    ctx.fillText(`Crop: ${crop.w}x${crop.h} (image px)`, 12, view.height - 12);
+    ctx.restore();
+  }
+
+  function decodeNow() {
+    if (!imgLoaded) return;
+
+    setBadge(status2, 'Décodage…', '');
+    out.textContent = 'Décodage…';
+
+    // On extrait la zone crop dans un canvas offscreen à haute résolution
+    // => plus zoom est grand, plus on “sur-échantillonne” pour aider jsQR
+    const factor = Math.max(1, zoom) * 2; // 2 = boost qualité
+    const ow = Math.floor(crop.w * factor);
+    const oh = Math.floor(crop.h * factor);
+
+    const off = document.createElement('canvas');
+    off.width = ow;
+    off.height = oh;
+    const octx = off.getContext('2d', { willReadFrequently: true });
+
+    octx.imageSmoothingEnabled = false;
+    octx.drawImage(
+      img,
+      crop.x, crop.y, crop.w, crop.h,
+      0, 0, ow, oh
+    );
+
+    const imageData = octx.getImageData(0, 0, ow, oh);
+
+    // jsQR
+    const code = jsQR(imageData.data, ow, oh, {
+      inversionAttempts: "attemptBoth"
+    });
+
+    if (code && code.data) {
+      out.textContent = code.data;
+      setBadge(status2, 'QR trouvé', 'ok');
+      btnCopy.disabled = false;
+      copyInlineBtn.style.display = "inline-block";
+
+      return;
+    }
+
+    // Fallback: tenter quelques “retries” (couper un peu les bords)
+    const tries = [
+      { pad: 0.05 }, { pad: 0.10 }, { pad: 0.15 }
+    ];
+
+    for (const t of tries) {
+      const px = Math.floor(ow * t.pad);
+      const py = Math.floor(oh * t.pad);
+      const tw = ow - 2*px;
+      const th = oh - 2*py;
+      if (tw < 80 || th < 80) continue;
+
+      const id2 = octx.getImageData(px, py, tw, th);
+      const c2 = jsQR(id2.data, tw, th, { inversionAttempts: "attemptBoth" });
+      if (c2 && c2.data) {
+        out.textContent = c2.data;
+        setBadge(status2, 'QR trouvé (fallback)', 'ok');
+        btnCopy.disabled = false;
+        copyInlineBtn.style.display = "inline-block";
+
+        return;
+      }
+    }
+
+    out.textContent =
+      "Aucun QR détecté.\n\n" +
+      "Conseils:\n" +
+      "- Recadrez plus serré sur UN seul QR.\n" +
+      "- Augmentez le zoom (x2 à x6).\n" +
+      "- Utilisez une image plus nette (PNG exporté, pas une photo floue).\n" +
+      "- Si c’est un QR très petit dans un PDF, exportez le PDF en image HD (300 dpi) ou refaites une capture plus grande.";
+    setBadge(status2, 'Échec', 'err');
+    btnCopy.disabled = true;
+  }
+
+  // Convertit les coordonnées souris (canvas) -> déplacement du crop en coords image
+  function canvasToImageDelta(dxCanvas, dyCanvas) {
+    const vw = view.width, vh = view.height;
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const scale = Math.min(vw / iw, vh / ih);
+    return { dxImg: dxCanvas / scale, dyImg: dyCanvas / scale };
+  }
+
+  // Events
+  fileEl.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    imgLoaded = false;
+    enableUI(false);
+    setBadge(status, 'Chargement…', '');
+
+    img.onload = () => {
+      imgLoaded = true;
+      resetCrop();
+      clampCrop();
+      enableUI(true);
+      setBadge(status, 'Image chargée', 'ok');
+      setBadge(status2, '—', '');
+      out.textContent = 'Cliquez “Décoder”.';
+      draw();
+    };
+
+    img.onerror = () => {
+      imgLoaded = false;
+      setBadge(status, 'Erreur image', 'err');
+      enableUI(false);
+      draw();
+    };
+
+    img.src = url;
+  });
+
+  btnDecode.addEventListener('click', decodeNow);
+
+  btnCopy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(out.textContent);
+      setBadge(status2, 'Copié ✅', 'ok');
+    } catch {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = out.textContent;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      setBadge(status2, 'Copié ✅', 'ok');
+    }
+  });
+
+  btnReset.addEventListener('click', () => {
+    if (!imgLoaded) return;
+    resetCrop();
+    clampCrop();
+    draw();
+  });
+
+  zoomEl.addEventListener('input', () => {
+    zoom = parseFloat(zoomEl.value);
+    zoomVal.textContent = `x${zoom.toFixed(1)}`;
+
+    // Zoom = on réduit la fenêtre de crop (plus serré) autour de son centre
+    const cx = crop.x + crop.w/2;
+    const cy = crop.y + crop.h/2;
+    const base = Math.min(img.naturalWidth, img.naturalHeight) * 0.6;
+    const newSize = Math.max(120, Math.floor(base / zoom));
+    crop.w = newSize;
+    crop.h = newSize;
+    crop.x = Math.floor(cx - crop.w/2);
+    crop.y = Math.floor(cy - crop.h/2);
+    clampCrop();
+    draw();
+  });
+
+  // Drag sur canvas => déplacer crop
+  view.addEventListener('mousedown', (e) => {
+    if (!imgLoaded) return;
+    dragging = true;
+    dragStart = { x: e.offsetX, y: e.offsetY };
+    cropStart = { x: crop.x, y: crop.y };
+  });
+
+  view.addEventListener('mousemove', (e) => {
+    if (!dragging || !imgLoaded) return;
+    const dx = e.offsetX - dragStart.x;
+    const dy = e.offsetY - dragStart.y;
+    const { dxImg, dyImg } = canvasToImageDelta(dx, dy);
+    crop.x = Math.floor(cropStart.x + dxImg);
+    crop.y = Math.floor(cropStart.y + dyImg);
+    clampCrop();
+    draw();
+  });
+
+  window.addEventListener('mouseup', () => dragging = false);
+
+  // Init
+  draw();
+})();
+
+copyInlineBtn.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(out.textContent);
+    setBadge(status2, "Copié ✅", "ok");
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = out.textContent;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    setBadge(status2, "Copié ✅", "ok");
+  }
+});
+
+</script>
+
+</body>
+</html>
