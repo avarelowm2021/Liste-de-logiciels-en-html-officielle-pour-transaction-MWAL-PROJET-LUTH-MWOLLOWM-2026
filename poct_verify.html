@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PoCT Verify - MWAL + € Visible</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<style>
+:root {
+  --green: #00ff66;
+  --cyan: #00ffff;
+  --yellow: #ffff00;
+  --magenta: #ff00ff;
+  --orange: #ffaa00;
+  --bg: #000;
+  --panel-bg: #040904;
+  --gold: #ffd700;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--green);
+  font-family: Consolas, monospace;
+  padding: 16px;
+}
+
+.panel {
+  border: 1px solid var(--green);
+  border-radius: 12px;
+  padding: 14px;
+  max-width: 720px;
+  margin: auto auto 20px;
+  background: var(--panel-bg);
+}
+
+label { font-size: 12px; opacity: .9; display: block; margin-top: 10px; }
+
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  background: #020402;
+  border: 1px solid var(--green);
+  color: var(--green);
+  font-family: inherit;
+  border-radius: 8px;
+}
+
+button {
+  background: var(--green);
+  color: #001a08;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 14px;
+  transition: opacity .2s;
+}
+button:hover { opacity: .85; }
+
+.hash { color: var(--cyan); word-break: break-all; font-size: 12px; }
+.timestamp { color: var(--orange); font-size: 13px; margin-top: 8px; font-weight: 600; }
+
+.mined-info {
+  color: var(--magenta);
+  font-size: 15px;
+  margin: 12px 0;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.euro-result {
+  background: #1a1a00;
+  border: 3px solid var(--yellow);
+  border-radius: 10px;
+  padding: 18px;
+  margin: 20px 0 10px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--yellow);
+  box-shadow: 0 0 15px #ffff0088;
+}
+.euro-result small {
+  font-size: 14px;
+  color: #cccc66;
+  display: block;
+  margin-top: 10px;
+}
+
+/* ========== FOND MONÉTAIRE ========== */
+.fund-panel {
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 14px;
+  max-width: 720px;
+  margin: auto auto 20px;
+  background: #0d0b00;
+  box-shadow: 0 0 18px #ffd70033;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 6px;
+}
+.section-title.gold { color: var(--gold); }
+.section-title.green { color: var(--green); }
+
+.cours-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+@media (max-width: 520px) {
+  .cours-grid { grid-template-columns: 1fr; }
+}
+
+.cours-card {
+  border-radius: 12px;
+  padding: 18px 14px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.cours-card.bloc {
+  background: #001433;
+  border: 3px solid var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 18px #00ffff55;
+}
+
+.cours-card.mwal {
+  background: #130020;
+  border: 3px solid var(--magenta);
+  color: var(--magenta);
+  box-shadow: 0 0 18px #ff00ff55;
+}
+
+.cours-card .label {
+  font-size: 11px;
+  opacity: .8;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+}
+
+.cours-card .valeur {
+  font-size: 26px;
+  line-height: 1.2;
+  word-break: break-all;
+}
+
+.cours-card .sub {
+  font-size: 11px;
+  opacity: .7;
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+.separator {
+  border: none;
+  border-top: 1px dashed #2a2a2a;
+  margin: 14px 0;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== PANEL VÉRIFICATION BLOC ===== -->
+<div class="panel">
+  <div class="section-title green">🔍 Vérification de Bloc</div>
+  <label>Genesis</label>
+  <input id="genesis" value="2026-01-07T00:00:00+01:00">
+  <label>Intervalle bloc (ms)</label>
+  <input id="interval" value="4000">
+  <label>Préfixe</label>
+  <input id="prefix" value="MWAL|BLOCK|">
+  <label>Numéro de bloc</label>
+  <input id="block" value="57561">
+  <label>Sel personnel</label>
+  <input id="salt" placeholder="pseudo / phrase unique">
+  <label>Hash attendu (optionnel)</label>
+  <input id="expect">
+  <button id="compute">Calculer / Vérifier</button>
+  <div id="out" class="hash">—</div>
+  <div id="qr"></div>
+</div>
+
+<!-- ===== PANEL CALCULATEUR MWAL + € ===== -->
+<div class="panel">
+  <div class="section-title green">⛏️ Calculateur MWAL + VALEUR EN €</div>
+
+  <label>Date de début</label>
+  <input type="datetime-local" id="startDate">
+
+  <label>Date de fin</label>
+  <input type="datetime-local" id="endDate">
+
+  <label>Récompense par Bloc ou MWAL /v/O:O\v\</label>
+  <input id="rewardPerBlock" value="0.000006944444444444444" type="text">
+
+  <label>Prix de 1 MWAL (vente ou achat) en €</label>
+  <input id="priceEuro" value="0.01" type="text" placeholder="ex: 0.01 — 1.00 — 5.00">
+
+  <button id="calculateMined">CALCULER (Blocs + MWAL + €)</button>
+
+  <div id="minedOut" class="mined-info">—</div>
+  <div id="euroOut" class="euro-result">💶 RÉSULTAT EN € : — €</div>
+</div>
+
+<!-- ===== PANEL FOND MONÉTAIRE ASSOCIATIF ===== -->
+<div class="fund-panel">
+  <div class="section-title gold">🏦 Fond Monétaire Associatif — Calcul des Cours</div>
+
+  <label style="color:var(--gold)">Fond Monétaire Associatif (€)"https://www.blockchain.com/explorer/addresses/btc/bc1qk7s7s9atxg3sqyakf7hk5r9lduv47g7nyrytlk"</label>
+  <input id="fondMonetaire" type="text" value="180"
+    placeholder="ex : 180"
+    style="border-color:var(--gold); color:var(--gold);">
+
+  <hr class="separator">
+
+  <p style="font-size:12px; color:#aaa; margin:4px 0 8px;">
+    Diviseur pour le <strong style="color:var(--cyan)">COURS DU BLOC</strong> :
+    entrez soit le <em>nombre de blocs minés</em> (ex : <code>1782015</code>),
+    soit une valeur intrinsèque quelconque.
+  </p>
+
+  <label style="color:var(--cyan)">Nombre de Blocs / Valeur Diviseur Bloc</label>
+  <input id="diviseurBloc" type="text" placeholder="ex : 1782015 ou blocs calculés ci-dessus"
+    style="border-color:var(--cyan); color:var(--cyan);">
+
+  <hr class="separator">
+
+  <p style="font-size:12px; color:#aaa; margin:4px 0 8px;">
+    Diviseur pour le <strong style="color:var(--magenta)">COURS DU MWAL</strong> :
+    entrez soit la <em>récompense par bloc/MWAL</em> (valeur du champ ci-dessus),
+    soit un total de tokens MWAL émis.
+  </p>
+
+  <label style="color:var(--magenta)">Récompense / Total MWAL Émis — Valeur Diviseur MWAL</label>
+  <input id="diviseurMWAL" type="text" placeholder="ex : 0.000006944... ou total MWAL"
+    style="border-color:var(--magenta); color:var(--magenta);">
+
+  <button id="calculateCours"
+    style="background:var(--gold); color:#1a0d00; margin-top:16px;">
+    ⚡ CALCULER LES COURS
+  </button>
+
+  <!-- Résultats cours -->
+  <div class="cours-grid" id="coursGrid">
+    <div class="cours-card bloc" id="cardBloc">
+      <div class="label">📦 Cours du Bloc</div>
+      <div class="valeur" id="coursBloc">—</div>
+      <div class="sub" id="subBloc">—</div>
+    </div>
+    <div class="cours-card mwal" id="cardMWAL">
+      <div class="label">💎 Cours du MWAL/MWOLLOWM</div>
+      <div class="valeur" id="coursMWAL">—</div>
+      <div class="sub" id="subMWAL">—</div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+/* ─────────────────────────────────────────
+   UTILITAIRES
+───────────────────────────────────────── */
+function genesisMs(i) { return new Date(i).getTime(); }
+
+function formatDateTime(ts) {
+  return new Date(ts).toLocaleString('fr-FR', {
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit',
+    timeZoneName:'short'
+  });
+}
+
+function formatEuro(v, digits = 10) {
+  if (v === 0) return "0,00 €";
+  if (v >= 0.01) {
+    return v.toLocaleString('fr-FR', { minimumFractionDigits: 6, maximumFractionDigits: 8 }) + " €";
+  }
+  return v.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits }) + " €";
+}
+
+/* ─────────────────────────────────────────
+   CALCULATEUR MWAL + €
+───────────────────────────────────────── */
+document.getElementById('calculateMined').onclick = () => {
+  const startInput = document.getElementById('startDate').value;
+  const endInput   = document.getElementById('endDate').value;
+  const rewardStr  = document.getElementById('rewardPerBlock').value.trim();
+  const priceStr   = document.getElementById('priceEuro').value.trim();
+
+  const euroOut  = document.getElementById('euroOut');
+  const minedOut = document.getElementById('minedOut');
+
+  if (!startInput || !endInput) {
+    minedOut.innerHTML = "⚠️ Mets les deux dates svp";
+    euroOut.innerHTML  = "💶 RÉSULTAT EN € : — €";
+    return;
+  }
+
+  const g          = genesisMs(document.getElementById('genesis').value);
+  const intervalMs = Number(document.getElementById('interval').value);
+  const startMs    = new Date(startInput).getTime();
+  const endMs      = new Date(endInput).getTime();
+
+  if (endMs <= startMs) {
+    minedOut.innerHTML = "⚠️ Fin doit être après début";
+    euroOut.innerHTML  = "💶 RÉSULTAT EN € : — €";
+    return;
+  }
+
+  const reward = parseFloat(rewardStr);
+  const price  = parseFloat(priceStr);
+
+  if (isNaN(reward) || reward <= 0) { minedOut.innerHTML = "⚠️ Récompense invalide"; return; }
+  if (isNaN(price)  || price  <  0) { minedOut.innerHTML = "⚠️ Prix € invalide";     return; }
+
+  const startBlock = Math.floor((startMs - g) / intervalMs);
+  const endBlock   = Math.floor((endMs   - g) / intervalMs);
+  const blocks     = Math.max(0, endBlock - startBlock);
+  const totalMWAL  = blocks * reward;
+  const totalEuro  = totalMWAL * price;
+
+  const durationMs = endMs - startMs;
+  const d = Math.floor(durationMs / 86400000);
+  const h = Math.floor((durationMs % 86400000) / 3600000);
+  const m = Math.floor((durationMs % 3600000)  / 60000);
+
+  minedOut.innerHTML =
+    `⛏️ Blocs minés : <strong>${blocks.toLocaleString('fr-FR')}</strong><br>` +
+    `Total MWAL : ${totalMWAL.toFixed(10)}<br>` +
+    `Durée : ${d} j ${h}h ${m} min<br>` +
+    `${formatDateTime(startMs)} → ${formatDateTime(endMs)}`;
+
+  euroOut.innerHTML =
+    `💶 RÉSULTAT EN € : <strong>${totalEuro.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2})} €</strong><br>` +
+    `<small>(cours utilisé : ${price.toLocaleString('fr-FR', {minimumFractionDigits:4, maximumFractionDigits:8})} € / MWAL)</small>`;
+
+  // Pré-remplir les diviseurs du fond monétaire
+  if (blocks > 0) document.getElementById('diviseurBloc').value = blocks;
+  if (reward > 0) document.getElementById('diviseurMWAL').value = rewardStr;
+};
+
+/* ─────────────────────────────────────────
+   CALCULATEUR FOND MONÉTAIRE — COURS
+───────────────────────────────────────── */
+document.getElementById('calculateCours').onclick = () => {
+  const fondStr       = document.getElementById('fondMonetaire').value.trim().replace(',', '.');
+  const diviseurBStr  = document.getElementById('diviseurBloc').value.trim().replace(',', '.');
+  const diviseurMStr  = document.getElementById('diviseurMWAL').value.trim().replace(',', '.');
+
+  const fond       = parseFloat(fondStr);
+  const divBloc    = parseFloat(diviseurBStr);
+  const divMWAL    = parseFloat(diviseurMStr);
+
+  const coursBloc  = document.getElementById('coursBloc');
+  const subBloc    = document.getElementById('subBloc');
+  const coursMWAL  = document.getElementById('coursMWAL');
+  const subMWAL    = document.getElementById('subMWAL');
+
+  // --- COURS DU BLOC ---
+  if (isNaN(fond) || fond <= 0) {
+    coursBloc.textContent = "⚠️ Fond invalide";
+    subBloc.textContent   = "";
+  } else if (isNaN(divBloc) || divBloc <= 0) {
+    coursBloc.textContent = "⚠️ Diviseur Bloc invalide";
+    subBloc.textContent   = "";
+  } else {
+    const vBloc = fond / divBloc;
+    coursBloc.textContent = formatEuro(vBloc);
+    subBloc.innerHTML =
+      `${fond.toLocaleString('fr-FR', {minimumFractionDigits:2})} € ÷ ${divBloc.toLocaleString('fr-FR')} blocs`;
+  }
+
+  // --- COURS DU MWAL ---
+  if (isNaN(fond) || fond <= 0) {
+    coursMWAL.textContent = "⚠️ Fond invalide";
+    subMWAL.textContent   = "";
+  } else if (isNaN(divMWAL) || divMWAL <= 0) {
+    coursMWAL.textContent = "⚠️ Diviseur MWAL invalide";
+    subMWAL.textContent   = "";
+  } else {
+    const vMWAL = fond / divMWAL;
+    coursMWAL.textContent = formatEuro(vMWAL);
+    subMWAL.innerHTML =
+      `${fond.toLocaleString('fr-FR', {minimumFractionDigits:2})} € ÷ ${Number(divMWAL).toLocaleString('fr-FR', {maximumFractionDigits:15})} (diviseur MWAL)`;
+  }
+};
+
+/* ─────────────────────────────────────────
+   VALEURS PAR DÉFAUT (24 dernières heures)
+───────────────────────────────────────── */
+const now = new Date();
+document.getElementById('endDate').value   = now.toISOString().slice(0,16);
+document.getElementById('startDate').value = new Date(now.getTime() - 24*60*60*1000).toISOString().slice(0,16);
+</script>
+
+</body>
+</html>
