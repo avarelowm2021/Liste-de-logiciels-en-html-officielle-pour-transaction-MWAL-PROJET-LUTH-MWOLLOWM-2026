@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ajout points orbitaux MT</title>
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#02040a;color:#eef6ff;font-family:Arial,sans-serif;padding:22px}.card{max-width:560px;width:100%;background:#08101ddd;border:1px solid #ffd85a55;border-radius:20px;padding:22px;box-shadow:0 24px 70px #0008}h1{font-size:21px;margin:0 0 12px;color:#ffd85a}p{line-height:1.55;color:#aebed0}label{display:block;margin:18px 0 8px;font-weight:700}input,button{width:100%;min-height:50px;border-radius:13px;border:1px solid #ffffff24;background:#050914;color:white;padding:11px;font:inherit}button{margin-top:14px;font-weight:800;background:linear-gradient(135deg,#8a5700,#dcae26);cursor:pointer}button:disabled{opacity:.45}.ok{margin-top:15px;color:#a8ffc7;font-weight:700}.small{font-size:12px;color:#8092a8}</style>
+</head>
+<body><main class="card"><h1>Points orbitaux du Mineur Témoin</h1><p>Sélectionne le fichier HTML original de MWOLLOWM Universe. Cet outil crée une nouvelle copie en ajoutant uniquement un point doré en orbite autour des 30 premiers MWOLLOWM du MT. Le fichier original n'est pas modifié.</p><label>Application originale</label><input id="file" type="file" accept="text/html,.html"><button id="make" disabled>Créer la version avec orbites</button><div id="msg" class="ok"></div><p class="small">Chaque MWOLLOWM MT correspond aux jalons 144 000, 288 000, ... jusqu'à 4 320 000 MWAL. Les points ont une phase différente et tournent lentement de manière permanente.</p></main>
+<script>
+const input=document.getElementById('file'),btn=document.getElementById('make'),msg=document.getElementById('msg');
+input.onchange=()=>{btn.disabled=!input.files.length;msg.textContent=''};
+const patch=`
+<script>
+(()=>{
+'use strict';
+const COUNT=30,STEP=144000;
+const layer=document.createElement('canvas');
+layer.id='mt-orbit-layer';
+Object.assign(layer.style,{position:'fixed',inset:'0',width:'100%',height:'100%',pointerEvents:'none',zIndex:'1'});
+const universe=document.getElementById('universe');
+universe?.insertAdjacentElement('afterend',layer);
+const g=layer.getContext('2d');let w=0,h=0,dpr=1;
+function resizeOrbit(){w=innerWidth;h=innerHeight;dpr=Math.min(devicePixelRatio||1,1.5);layer.width=Math.floor(w*dpr);layer.height=Math.floor(h*dpr);g.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resizeOrbit,{passive:true});resizeOrbit();
+function glow(x,y,r,a){const q=g.createRadialGradient(x,y,0,x,y,r);q.addColorStop(0,'rgba(255,255,225,'+a+')');q.addColorStop(.18,'rgba(255,223,105,'+(a*.95)+')');q.addColorStop(.55,'rgba(255,178,20,'+(a*.36)+')');q.addColorStop(1,'rgba(255,150,0,0)');g.fillStyle=q;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill()}
+function projected(id){try{const p=worldPosition(id);const q=project(p.x,p.y,p.z);if(!q||!Number.isFinite(q.x)||!Number.isFinite(q.y)||!Number.isFinite(q.s)||q.z<=0)return null;return q}catch(e){return null}}
+function frame(t){g.clearRect(0,0,w,h);for(let i=1;i<=COUNT;i++){const id=i*STEP,q=projected(id);if(!q||q.s<.035)continue;const phase=i*2.3999632297;const angle=t*.00042+phase;const radius=Math.max(13,Math.min(74,34*q.s));const flatten=.42;const ox=Math.cos(angle)*radius;const oy=Math.sin(angle)*radius*flatten;const x=q.x+ox,y=q.y+oy;g.strokeStyle='rgba(255,210,72,'+Math.min(.28,.08+q.s*.13)+')';g.lineWidth=Math.max(.7,Math.min(1.7,q.s));g.beginPath();g.ellipse(q.x,q.y,radius,radius*flatten,0,0,Math.PI*2);g.stroke();glow(x,y,Math.max(7,Math.min(18,9*q.s)),.72);g.fillStyle='#fff3a3';g.beginPath();g.arc(x,y,Math.max(1.7,Math.min(4.8,2.8*q.s)),0,Math.PI*2);g.fill()}requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+})();
+<\/script>`;
+btn.onclick=async()=>{const f=input.files[0];if(!f)return;let html=await f.text();if(html.includes('id=\"mt-orbit-layer\"')||html.includes("id='mt-orbit-layer'")){msg.textContent='Cette version contient déjà les points orbitaux.';return}const at=html.toLowerCase().lastIndexOf('</body>');html=at>=0?html.slice(0,at)+patch+html.slice(at):html+patch;const blob=new Blob([html],{type:'text/html;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.name.replace(/\.html?$/i,'')+'_POINTS_ORBITAUX_MT.html';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);msg.textContent='Version créée. Ouvre le fichier téléchargé pour voir les orbites.'};
+</script></body></html>
